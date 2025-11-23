@@ -2,6 +2,7 @@ import React from 'react'
 import { Routes, Route } from 'react-router-dom'
 import Login from './pages/Login'
 import DailyBrief from './pages/DailyBrief'
+import AccountInbox from './pages/AccountInbox'
 import './App.css'
 
 function App() {
@@ -9,6 +10,7 @@ function App() {
     <Routes>
       <Route path="/" element={<DailyBrief />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/account/:accountId" element={<AccountInbox />} />
     </Routes>
   )
 }

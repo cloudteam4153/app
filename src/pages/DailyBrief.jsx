@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../App.css'
 
@@ -11,7 +11,26 @@ function DailyBrief() {
   const [isConnected, setIsConnected] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
   const [selectedAccount, setSelectedAccount] = useState('all')
+  const [showAccountDropdown, setShowAccountDropdown] = useState(false)
+  const dropdownRef = useRef(null)
   const navigate = useNavigate()
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowAccountDropdown(false)
+      }
+    }
+
+    if (showAccountDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showAccountDropdown])
 
   // Mock connected accounts - in real app, this would come from API
   const connectedAccounts = [
@@ -82,7 +101,12 @@ function DailyBrief() {
               <button
                 key={account.id}
                 className={`account-item ${selectedAccount === account.id ? 'active' : ''}`}
-                onClick={() => setSelectedAccount(account.id)}
+                onClick={() => {
+                  setSelectedAccount(account.id)
+                  if (account.id !== 'all') {
+                    navigate(`/account/${account.id}`)
+                  }
+                }}
                 title={account.name}
               >
                 <span className="account-icon">{account.icon}</span>
@@ -108,10 +132,38 @@ function DailyBrief() {
             <div className="brief-header">
               <h2 className="brief-title">Daily Brief</h2>
               <p className="brief-date">
-                {selectedAccount === 'all' 
-                  ? `${dateStr} • Today • ${dayName} • All Accounts`
-                  : `${dateStr} • Today • ${dayName} • ${connectedAccounts.find(a => a.id === selectedAccount)?.name}`
-                }
+                {dateStr} • Today • {dayName} •{' '}
+                <span 
+                  ref={dropdownRef}
+                  className="account-selector"
+                  onClick={() => setShowAccountDropdown(!showAccountDropdown)}
+                >
+                  {selectedAccount === 'all' 
+                    ? 'All Accounts'
+                    : connectedAccounts.find(a => a.id === selectedAccount)?.name
+                  }
+                  <span className="dropdown-arrow">{showAccountDropdown ? '▲' : '▼'}</span>
+                  {showAccountDropdown && (
+                    <div className="account-dropdown">
+                      {connectedAccounts.map(account => (
+                        <div
+                          key={account.id}
+                          className={`dropdown-item ${selectedAccount === account.id ? 'selected' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedAccount(account.id)
+                            setShowAccountDropdown(false)
+                            if (account.id !== 'all') {
+                              navigate(`/account/${account.id}`)
+                            }
+                          }}
+                        >
+                          {account.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </span>
               </p>
             </div>
 
