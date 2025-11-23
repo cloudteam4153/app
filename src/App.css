@@ -8,7 +8,7 @@
 .app-header {
   background: #ffffff;
   border-bottom: 1px solid #e0e0e0;
-  padding: 1.5rem 2rem;
+  padding: 0.75rem 2rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   display: flex;
   justify-content: space-between;
@@ -21,14 +21,14 @@
 
 .app-header h1 {
   margin: 0;
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 600;
   color: #1a1a1a;
 }
 
 .subtitle {
-  margin: 0.5rem 0 0 0;
-  font-size: 0.9rem;
+  margin: 0.25rem 0 0 0;
+  font-size: 0.85rem;
   color: #666;
 }
 
@@ -77,12 +77,177 @@
   margin: 1rem 2rem;
 }
 
+.brief-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.brief-sidebar {
+  width: 180px;
+  background: #f5f5f5;
+  border-right: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 0;
+}
+
+.sidebar-header {
+  padding: 0 0.75rem 1rem 0.75rem;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 1rem;
+}
+
+.sidebar-nav-arrows {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.nav-arrow {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+}
+
+.nav-arrow:hover {
+  background: #e0e0e0;
+}
+
+.sidebar-accounts {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0.5rem;
+}
+
+.account-item {
+  width: 100%;
+  padding: 0.75rem 0.5rem;
+  margin-bottom: 0.5rem;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background 0.2s;
+  text-align: left;
+}
+
+.account-item:hover {
+  background: #e0e0e0;
+}
+
+.account-item.active {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.account-item.add-account-btn {
+  border: 1px dashed #999;
+  color: #666;
+}
+
+.account-item.add-account-btn:hover {
+  background: #e0e0e0;
+  border-color: #4a90e2;
+  color: #4a90e2;
+}
+
+.account-icon {
+  font-size: 1.2rem;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.account-name {
+  font-size: 0.85rem;
+  color: #1a1a1a;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.sidebar-footer {
+  padding: 1rem 0.5rem 0 0.5rem;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.sidebar-add-btn,
+.sidebar-help-btn,
+.sidebar-profile-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: #666;
+  transition: background 0.2s;
+  padding: 0;
+  line-height: 1;
+}
+
+.sidebar-add-btn span,
+.sidebar-help-btn span,
+.sidebar-profile-btn span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.sidebar-add-btn:hover,
+.sidebar-help-btn:hover,
+.sidebar-profile-btn:hover {
+  background: #d0d0d0;
+}
+
+.sidebar-profile-btn {
+  background: #666;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.sidebar-profile-btn:hover {
+  background: #555;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 0.5rem 0;
+}
+
 .app-main {
   flex: 1;
   padding: 2rem;
   max-width: 800px;
   margin: 0 auto;
   width: 100%;
+  overflow-y: auto;
 }
 
 .daily-brief {

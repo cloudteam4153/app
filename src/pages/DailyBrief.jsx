@@ -10,7 +10,17 @@ function DailyBrief() {
   })
   const [isConnected, setIsConnected] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
+  const [selectedAccount, setSelectedAccount] = useState('all')
   const navigate = useNavigate()
+
+  // Mock connected accounts - in real app, this would come from API
+  const connectedAccounts = [
+    { id: 'all', name: 'All Accounts', type: 'all', icon: '📋' },
+    { id: 'gmail1', name: 'work@gmail.com', type: 'gmail', icon: '📧' },
+    { id: 'gmail2', name: 'personal@gmail.com', type: 'gmail', icon: '📧' },
+    { id: 'gmail3', name: 'team@gmail.com', type: 'gmail', icon: '📧' },
+    { id: 'slack1', name: 'Work Team', type: 'slack', icon: '💬' }
+  ]
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
@@ -34,6 +44,10 @@ function DailyBrief() {
       setMessage({ type: 'success', text: 'New emails and messages retrieved!' })
       setTimeout(() => setMessage({ type: '', text: '' }), 2000)
     }, 1000)
+  }
+
+  const handleAddAccount = () => {
+    navigate('/login')
   }
 
   const today = new Date()
@@ -61,12 +75,45 @@ function DailyBrief() {
           {message.text}
         </div>
       )}
-      <main className="app-main">
-        <div className="daily-brief">
-          <div className="brief-header">
-            <h2 className="brief-title">Daily Brief</h2>
-            <p className="brief-date">{dateStr} • Today • {dayName}</p>
+      <div className="brief-layout">
+        <aside className="brief-sidebar">
+          <div className="sidebar-accounts">
+            {connectedAccounts.map(account => (
+              <button
+                key={account.id}
+                className={`account-item ${selectedAccount === account.id ? 'active' : ''}`}
+                onClick={() => setSelectedAccount(account.id)}
+                title={account.name}
+              >
+                <span className="account-icon">{account.icon}</span>
+                <span className="account-name">{account.name}</span>
+              </button>
+            ))}
+            <button className="account-item add-account-btn" onClick={handleAddAccount}>
+              <span className="account-icon">+</span>
+              <span className="account-name">Add Account</span>
+            </button>
           </div>
+          <div className="sidebar-footer">
+            <button className="sidebar-help-btn" title="Help">
+              <span className="help-icon">?</span>
+            </button>
+            <button className="sidebar-profile-btn" title="Profile">
+              <span className="profile-icon">C</span>
+            </button>
+          </div>
+        </aside>
+        <main className="app-main">
+          <div className="daily-brief">
+            <div className="brief-header">
+              <h2 className="brief-title">Daily Brief</h2>
+              <p className="brief-date">
+                {selectedAccount === 'all' 
+                  ? `${dateStr} • Today • ${dayName} • All Accounts`
+                  : `${dateStr} • Today • ${dayName} • ${connectedAccounts.find(a => a.id === selectedAccount)?.name}`
+                }
+              </p>
+            </div>
 
           {/* Overdue Section */}
           <div className="task-section task-section-overdue">
@@ -107,7 +154,8 @@ function DailyBrief() {
             )}
           </div>
         </div>
-      </main>
+        </main>
+      </div>
     </div>
   )
 }
