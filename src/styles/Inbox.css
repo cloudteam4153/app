@@ -1,0 +1,391 @@
+.inbox-container {
+  min-height: 100vh;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+}
+
+.inbox-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #e0e0e0;
+  background: #ffffff;
+}
+
+.inbox-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.header-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-get-mail,
+.btn-compose,
+.btn-daily-brief,
+.btn-settings {
+  padding: 0.5rem 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #ffffff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-get-mail:hover,
+.btn-compose:hover,
+.btn-daily-brief:hover,
+.btn-settings:hover {
+  background: #f5f5f5;
+}
+
+.btn-compose {
+  background: #4a90e2;
+  color: #ffffff;
+  border-color: #4a90e2;
+}
+
+.btn-compose:hover {
+  background: #357abd;
+}
+
+.back-button {
+  padding: 0.5rem 1rem;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.back-button:hover {
+  background: #e0e0e0;
+}
+
+.message {
+  padding: 0.75rem 1rem;
+  margin: 1rem 2rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.message.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.message.error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.inbox-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  border-bottom: 1px solid #e0e0e0;
+  background: #f9f9f9;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.checkbox-select-all {
+  cursor: pointer;
+}
+
+.select-all-text {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.toolbar-right {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-bulk-delete {
+  padding: 0.5rem 1rem;
+  background: #dc3545;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-bulk-delete:hover {
+  background: #c82333;
+}
+
+.email-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.email-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 1rem 2rem;
+  border-bottom: 1px solid #e0e0e0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.email-item:hover {
+  background: #f9f9f9;
+}
+
+.email-item.selected {
+  background: #e3f2fd;
+}
+
+.email-item.unread {
+  background: #f5f5f5;
+  font-weight: 500;
+}
+
+.email-item.unread.selected {
+  background: #e3f2fd;
+}
+
+.email-checkbox {
+  margin-right: 1rem;
+  margin-top: 0.25rem;
+  cursor: pointer;
+}
+
+.email-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.email-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.email-from {
+  font-weight: 500;
+  color: #1a1a1a;
+  font-size: 0.9rem;
+}
+
+.email-date {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.email-subject {
+  font-weight: 500;
+  color: #1a1a1a;
+  margin-bottom: 0.25rem;
+  font-size: 0.95rem;
+}
+
+.email-preview {
+  font-size: 0.85rem;
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.email-delete-btn {
+  margin-left: 1rem;
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  color: #999;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.email-delete-btn:hover {
+  color: #dc3545;
+}
+
+.empty-inbox {
+  padding: 3rem;
+  text-align: center;
+  color: #999;
+}
+
+.email-detail {
+  flex: 1;
+  padding: 2rem;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.email-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.email-detail-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  flex: 1;
+}
+
+.email-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-action {
+  padding: 0.5rem 1rem;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-action:hover {
+  background: #e0e0e0;
+}
+
+.btn-action.btn-delete {
+  background: #dc3545;
+  color: #ffffff;
+  border-color: #dc3545;
+}
+
+.btn-action.btn-delete:hover {
+  background: #c82333;
+}
+
+.email-meta {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+.email-meta p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.email-meta strong {
+  color: #1a1a1a;
+}
+
+.email-body {
+  line-height: 1.6;
+  color: #1a1a1a;
+}
+
+.compose-form {
+  padding: 2rem;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.compose-form .form-group {
+  margin-bottom: 1.5rem;
+}
+
+.compose-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.compose-form .form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.compose-form .form-input:focus {
+  outline: none;
+  border-color: #4a90e2;
+}
+
+.compose-form .form-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.compose-form .form-textarea:focus {
+  outline: none;
+  border-color: #4a90e2;
+}
+
+.compose-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.btn-send {
+  padding: 0.75rem 2rem;
+  background: #4a90e2;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-send:hover {
+  background: #357abd;
+}
+
+.btn-cancel {
+  padding: 0.75rem 2rem;
+  background: #f5f5f5;
+  color: #1a1a1a;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-cancel:hover {
+  background: #e0e0e0;
+}
+
