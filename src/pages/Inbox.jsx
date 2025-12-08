@@ -1,6 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../styles/Inbox.css'
+import { integrationsAPI } from '../services/api.js'
+import { TEST_USER_ID } from '../config/api.js'
 
 function Inbox() {
   const [emails, setEmails] = useState([])
@@ -9,7 +11,80 @@ function Inbox() {
   const [showCompose, setShowCompose] = useState(false)
   const [composeData, setComposeData] = useState({ to: '', subject: '', body: '' })
   const [message, setMessage] = useState({ type: '', text: '' })
+  const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
+
+  // Fetch messages on mount
+  useEffect(() => {
+    loadMessages()
+  }, [])
+
+  const loadMessages = async () => {
+    try {
+      setLoading(true)
+      
+      const response = await integrationsAPI.listMessages({ 
+        limit: 100,
+        sort_by: 'created_at',
+        sort_order: 'desc'
+      })
+      // Integrations service returns List[MessageRead] directly (array)
+      const messagesList = Array.isArray(response) ? response : []
+      
+      // Transform API messages to email format
+      // Note: Messages have snippet and raw (base64) fields
+      // The raw field contains full email with headers, but requires base64 decoding and email parsing
+      // For now, we'll use snippet and try to extract basic info
+      const transformedEmails = messagesList.map(msg => {
+        // Try to extract sender from snippet if it contains email-like patterns
+        let from = 'Unknown Sender'
+        let subject = msg.snippet ? msg.snippet.substring(0, 50) : '(No Subject)'
+        
+        // Use internal_date if available (Unix timestamp in milliseconds), otherwise use created_at
+        let dateStr = 'Unknown'
+        if (msg.internal_date) {
+          dateStr = new Date(msg.internal_date).toLocaleDateString()
+        } else if (msg.created_at) {
+          dateStr = new Date(msg.created_at).toLocaleDateString()
+        }
+        
+        return {
+          id: msg.id,
+          messageId: msg.id, // Keep original ID for API calls
+          from: from,
+          subject: subject,
+          preview: msg.snippet || '', // Use snippet field from API
+          date: dateStr,
+          read: true, // Messages don't have is_read field in schema
+          body: msg.raw || '', // Base64 encoded raw message
+          snippet: msg.snippet || '',
+          thread_id: msg.thread_id,
+          external_id: msg.external_id,
+          internal_date: msg.internal_date
+        }
+      })
+      
+      setEmails(transformedEmails)
+    } catch (error) {
+      console.error('Failed to load messages:', error)
+      const errorMessage = error.message || 'Failed to load messages'
+      // Check for network errors
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('ERR_CONNECTION_REFUSED')) {
+        setMessage({ 
+          type: 'error', 
+          text: `Cannot connect to API server. Please ensure the integrations service is running on 35.188.76.100:8000. Error: ${errorMessage}` 
+        })
+      } else {
+        setMessage({ 
+          type: 'error', 
+          text: `Failed to load messages: ${errorMessage}` 
+        })
+      }
+      setTimeout(() => setMessage({ type: '', text: '' }), 8000)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleEmailClick = (email) => {
     setSelectedEmail(email)
@@ -36,28 +111,77 @@ function Inbox() {
     }
   }
 
-  const handleDelete = (id) => {
-    setEmails(emails.filter(e => e.id !== id))
-    if (selectedEmail?.id === id) {
-      setSelectedEmail(null)
+  const handleDelete = async (id) => {
+    const email = emails.find(e => e.id === id)
+    if (!email?.messageId) {
+      // Fallback to local delete if no messageId
+      setEmails(emails.filter(e => e.id !== id))
+      if (selectedEmail?.id === id) {
+        setSelectedEmail(null)
+      }
+      setMessage({ type: 'success', text: 'Email deleted' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 2000)
+      return
     }
-    setMessage({ type: 'success', text: 'Email deleted' })
-    setTimeout(() => setMessage({ type: '', text: '' }), 2000)
+
+    try {
+      await integrationsAPI.deleteMessage(email.messageId)
+      setEmails(emails.filter(e => e.id !== id))
+      if (selectedEmail?.id === id) {
+        setSelectedEmail(null)
+      }
+      setMessage({ type: 'success', text: 'Email deleted' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 2000)
+    } catch (error) {
+      console.error('Failed to delete message:', error)
+      setMessage({ type: 'error', text: error.message || 'Failed to delete email' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+    }
   }
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (selectedIds.length === 0) {
       setMessage({ type: 'error', text: 'Please select emails to delete' })
       setTimeout(() => setMessage({ type: '', text: '' }), 2000)
       return
     }
-    setEmails(emails.filter(e => !selectedIds.includes(e.id)))
-    if (selectedEmail && selectedIds.includes(selectedEmail.id)) {
-      setSelectedEmail(null)
+
+    try {
+      // Get message IDs for selected emails
+      const messageIds = emails
+        .filter(e => selectedIds.includes(e.id))
+        .map(e => e.messageId)
+        .filter(id => id) // Filter out any undefined IDs
+
+      if (messageIds.length > 0) {
+        // Use bulk delete endpoint from composite service
+        try {
+          await integrationsAPI.bulkDeleteMessages(messageIds)
+        } catch (error) {
+          console.error('Bulk delete failed, trying individual deletes:', error)
+          // Fallback to individual deletes if bulk fails
+          for (const messageId of messageIds) {
+            try {
+              await integrationsAPI.deleteMessage(messageId)
+            } catch (err) {
+              console.error(`Failed to delete message ${messageId}:`, err)
+            }
+          }
+        }
+      }
+
+      setEmails(emails.filter(e => !selectedIds.includes(e.id)))
+      if (selectedEmail && selectedIds.includes(selectedEmail.id)) {
+        setSelectedEmail(null)
+      }
+      setMessage({ type: 'success', text: `${selectedIds.length} email(s) deleted` })
+      setSelectedIds([])
+      setTimeout(() => setMessage({ type: '', text: '' }), 2000)
+    } catch (error) {
+      console.error('Failed to delete messages:', error)
+      setMessage({ type: 'error', text: error.message || 'Failed to delete emails' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
     }
-    setMessage({ type: 'success', text: `${selectedIds.length} email(s) deleted` })
-    setSelectedIds([])
-    setTimeout(() => setMessage({ type: '', text: '' }), 2000)
   }
 
   const handleReply = () => {
@@ -94,21 +218,27 @@ function Inbox() {
     setTimeout(() => setMessage({ type: '', text: '' }), 2000)
   }
 
-  const handleGetNewMail = () => {
-    setMessage({ type: 'success', text: 'Checking for new emails...' })
-    setTimeout(() => {
-      const newEmail = {
-        id: emails.length + 1,
-        from: 'new.sender@example.com',
-        subject: 'New Message',
-        preview: 'This is a new email that just arrived...',
-        date: 'Nov 12, 2024',
-        read: false
-      }
-      setEmails([newEmail, ...emails])
-      setMessage({ type: 'success', text: 'New emails retrieved!' })
-      setTimeout(() => setMessage({ type: '', text: '' }), 2000)
-    }, 1000)
+  const handleSync = async () => {
+    try {
+      setMessage({ type: 'info', text: 'Syncing messages from all connections...' })
+      
+      // Call POST /syncs with default incremental payload
+      // The endpoint automatically finds all active connections for the current user
+      await integrationsAPI.createSync({
+        sync_type: 'incremental'
+      })
+      
+      // Wait a bit for syncs to process, then reload messages
+      setTimeout(async () => {
+        await loadMessages()
+        setMessage({ type: 'success', text: 'New messages retrieved!' })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+      }, 2000)
+    } catch (error) {
+      console.error('Failed to sync messages:', error)
+      setMessage({ type: 'error', text: error.message || 'Failed to sync messages. Please try again.' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000)
+    }
   }
 
   if (showCompose) {
@@ -173,8 +303,8 @@ function Inbox() {
             ← Back to Inbox
           </button>
           <div className="header-actions">
-            <button className="btn-get-mail" onClick={handleGetNewMail}>
-              Get New Mail
+            <button className="btn-sync" onClick={handleSync}>
+              Sync
             </button>
             <button className="btn-daily-brief" onClick={() => navigate('/daily-brief')}>
               Daily Brief
@@ -205,8 +335,14 @@ function Inbox() {
             <p><strong>Date:</strong> {selectedEmail.date}</p>
           </div>
           <div className="email-body">
-            <p>{selectedEmail.preview}</p>
-            <p>This is the full email content. In a real application, this would be fetched from the email service.</p>
+            {selectedEmail.body ? (
+              <div dangerouslySetInnerHTML={{ __html: selectedEmail.body.replace(/\n/g, '<br>') }} />
+            ) : (
+              <>
+                <p>{selectedEmail.preview}</p>
+                <p>Full email content not available. This may be a preview-only message.</p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -218,8 +354,8 @@ function Inbox() {
       <div className="inbox-header">
         <h1>Inbox</h1>
         <div className="header-actions">
-          <button className="btn-get-mail" onClick={handleGetNewMail}>
-            Get New Mail
+          <button className="btn-sync" onClick={handleSync}>
+            Sync
           </button>
           <button className="btn-compose" onClick={() => setShowCompose(true)}>
             Compose
@@ -259,9 +395,16 @@ function Inbox() {
       </div>
 
       <div className="email-list">
-        {emails.length === 0 ? (
+        {loading ? (
+          <div className="empty-inbox">
+            <p>Loading messages...</p>
+          </div>
+        ) : emails.length === 0 ? (
           <div className="empty-inbox">
             <p>No emails in inbox</p>
+            <button className="btn-get-mail" onClick={handleGetNewMail} style={{ marginTop: '1rem' }}>
+              Sync Messages
+            </button>
           </div>
         ) : (
           emails.map(email => (

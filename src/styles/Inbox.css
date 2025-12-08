@@ -28,32 +28,38 @@
 
 .btn-get-mail,
 .btn-compose,
+.btn-sync,
 .btn-daily-brief,
 .btn-settings {
   padding: 0.5rem 1rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  background: #ffffff;
   font-size: 0.9rem;
   cursor: pointer;
   transition: background 0.2s;
 }
 
-.btn-get-mail:hover,
+.btn-compose,
+.btn-sync {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
 .btn-compose:hover,
-.btn-daily-brief:hover,
-.btn-settings:hover {
+.btn-sync:hover {
   background: #f5f5f5;
 }
 
-.btn-compose {
-  background: #4a90e2;
-  color: #ffffff;
-  border-color: #4a90e2;
+.btn-daily-brief,
+.btn-settings {
+  border: none;
+  background: transparent;
+  color: #1a1a1a;
 }
 
-.btn-compose:hover {
-  background: #357abd;
+.btn-daily-brief:hover,
+.btn-settings:hover {
+  background: transparent;
+  color: #4a90e2;
 }
 
 .back-button {

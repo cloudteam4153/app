@@ -1,0 +1,42 @@
+# Git files
+.git
+.gitignore
+
+# Dependencies
+node_modules
+package-lock.json
+
+# Build artifacts (we upload dist/ separately)
+dist
+
+# Development files
+*.log
+.DS_Store
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+
+# Documentation
+*.md
+!README.md
+
+# Source files (only deploy built files)
+src
+composite-ms1
+integrations-svc-ms2
+ms3
+ms4-classification
+
+# Config files
+vite.config.js
+package.json
+
+# Other
+*.plan.md
+

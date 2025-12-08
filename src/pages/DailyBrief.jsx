@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../App.css'
+import { integrationsAPI, actionsAPI, classificationAPI } from '../services/api.js'
+import { TEST_USER_ID, TEST_USER_ID_INT } from '../config/api.js'
 
 function DailyBrief() {
   const [expandedSections, setExpandedSections] = useState({
@@ -12,8 +14,24 @@ function DailyBrief() {
   const [message, setMessage] = useState({ type: '', text: '' })
   const [selectedAccount, setSelectedAccount] = useState('all')
   const [showAccountDropdown, setShowAccountDropdown] = useState(false)
+  const [connectedAccounts, setConnectedAccounts] = useState([
+    { id: 'all', name: 'All Accounts', type: 'all', icon: '📋' }
+  ])
+  const [loading, setLoading] = useState(true)
+  const [tasks, setTasks] = useState([])
+  const [tasksLoading, setTasksLoading] = useState(true)
+  const [brief, setBrief] = useState(null)
+  const [briefLoading, setBriefLoading] = useState(false)
+  const [classifications, setClassifications] = useState([])
   const dropdownRef = useRef(null)
   const navigate = useNavigate()
+
+  // Load connections and tasks on mount
+  useEffect(() => {
+    loadConnections()
+    loadTasks()
+    loadTodayBrief()
+  }, [])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -32,14 +50,36 @@ function DailyBrief() {
     }
   }, [showAccountDropdown])
 
-  // Mock connected accounts - in real app, this would come from API
-  const connectedAccounts = [
-    { id: 'all', name: 'All Accounts', type: 'all', icon: '📋' },
-    { id: 'gmail1', name: 'work@gmail.com', type: 'gmail', icon: '📧' },
-    { id: 'gmail2', name: 'personal@gmail.com', type: 'gmail', icon: '📧' },
-    { id: 'gmail3', name: 'team@gmail.com', type: 'gmail', icon: '📧' },
-    { id: 'slack1', name: 'Work Team', type: 'slack', icon: '💬' }
-  ]
+  const loadConnections = async () => {
+    try {
+      setLoading(true)
+      const response = await integrationsAPI.listConnections({ 
+        is_active: true,
+        limit: 100 
+      })
+      // Integrations service returns List[ConnectionRead] directly (array)
+      const connections = Array.isArray(response) ? response : []
+      
+      const accounts = [
+        { id: 'all', name: 'All Accounts', type: 'all', icon: '📋' },
+        ...connections.map(conn => ({
+          id: conn.id,
+          name: conn.provider_account_id || `${conn.provider} Account`,
+          type: conn.provider?.toLowerCase() || 'unknown',
+          icon: conn.provider?.toLowerCase() === 'gmail' ? '📧' : 
+                conn.provider?.toLowerCase() === 'slack' ? '💬' : '📋'
+        }))
+      ]
+      
+      setConnectedAccounts(accounts)
+      setIsConnected(connections.length > 0)
+    } catch (error) {
+      console.error('Failed to load connections:', error)
+      // Don't show error on initial load, just set empty state
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
@@ -49,24 +89,226 @@ function DailyBrief() {
   }
 
   const handleConnect = () => {
-    navigate('/login')
+    navigate('/settings')
   }
 
-  const handleFetchNewEmails = () => {
+  const handleFetchNewEmails = async () => {
     if (!isConnected) {
       setMessage({ type: 'error', text: 'Please connect to email first' })
       setTimeout(() => setMessage({ type: '', text: '' }), 2000)
       return
     }
-    setMessage({ type: 'success', text: 'Fetching new emails and messages...' })
-    setTimeout(() => {
+
+    try {
+      setMessage({ type: 'info', text: 'Syncing new emails and messages...' })
+      
+      const connections = connectedAccounts
+        .filter(acc => acc.id !== 'all')
+        .map(acc => acc.id)
+
+      if (connections.length === 0) {
+        setMessage({ type: 'error', text: 'No active connections to sync' })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+        return
+      }
+
+      // Create syncs for all connections
+      const syncPromises = connections.map(connectionId => 
+        integrationsAPI.createSync({
+          connection_id: connectionId,
+          user_id: TEST_USER_ID,
+          sync_type: 'incremental'
+        }).catch(error => {
+          console.error(`Failed to sync connection ${connectionId}:`, error)
+          return null
+        })
+      )
+
+      await Promise.all(syncPromises)
+      
       setMessage({ type: 'success', text: 'New emails and messages retrieved!' })
-      setTimeout(() => setMessage({ type: '', text: '' }), 2000)
-    }, 1000)
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+    } catch (error) {
+      console.error('Failed to sync messages:', error)
+      setMessage({ type: 'error', text: error.message || 'Failed to sync messages' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000)
+    }
   }
 
   const handleAddAccount = () => {
-    navigate('/login')
+    navigate('/settings')
+  }
+
+  const loadTasks = async () => {
+    try {
+      setTasksLoading(true)
+      // Fetch all open tasks for the user
+      const response = await actionsAPI.listTasks({
+        user_id: TEST_USER_ID_INT,
+        status: 'open'
+      })
+      
+      // Actions service returns List[TaskResponse] directly (array)
+      const tasksList = Array.isArray(response) ? response : []
+      setTasks(tasksList)
+    } catch (error) {
+      console.error('Failed to load tasks:', error)
+      // Don't show error on initial load
+    } finally {
+      setTasksLoading(false)
+    }
+  }
+
+  const handleTaskStatusToggle = async (taskId, currentStatus) => {
+    try {
+      const newStatus = currentStatus === 'open' ? 'done' : 'open'
+      await actionsAPI.updateTask(taskId, { status: newStatus })
+      // Reload tasks to reflect the change
+      await loadTasks()
+    } catch (error) {
+      console.error('Failed to update task:', error)
+      setMessage({ type: 'error', text: 'Failed to update task' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+    }
+  }
+
+  // Categorize tasks into sections
+  const now = new Date()
+  const overdueTasks = tasks.filter(task => {
+    if (task.status !== 'open') return false
+    if (!task.due_at) return false
+    const dueDate = new Date(task.due_at)
+    return dueDate < now
+  })
+
+  const todoTasks = tasks.filter(task => {
+    if (task.status !== 'open') return false
+    if (!task.due_at) return true // No due date = todo
+    const dueDate = new Date(task.due_at)
+    return dueDate >= now // Due date in future = todo
+  })
+
+  // Follow-up section: Not available (endpoint returns 501)
+  const followupTasks = []
+
+  const loadTodayBrief = async () => {
+    try {
+      setBriefLoading(true)
+      const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
+      const response = await classificationAPI.listBriefs({
+        user_id: TEST_USER_ID,
+        brief_date: today
+      })
+      
+      // Classification service returns List[BriefRead] directly (array)
+      const briefsList = Array.isArray(response) ? response : []
+      if (briefsList.length > 0) {
+        // Use the most recent brief for today
+        setBrief(briefsList[briefsList.length - 1])
+      }
+    } catch (error) {
+      console.error('Failed to load brief:', error)
+      // Don't show error on initial load
+    } finally {
+      setBriefLoading(false)
+    }
+  }
+
+  const handleGenerateBrief = async () => {
+    try {
+      setBriefLoading(true)
+      setMessage({ type: 'info', text: 'Generating daily brief...' })
+      
+      const today = new Date().toISOString().split('T')[0]
+      const newBrief = await classificationAPI.createBrief({
+        user_id: TEST_USER_ID,
+        date: today,
+        max_items: 50
+      })
+      
+      setBrief(newBrief)
+      setMessage({ type: 'success', text: 'Daily brief generated successfully!' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+    } catch (error) {
+      console.error('Failed to generate brief:', error)
+      setMessage({ type: 'error', text: error.message || 'Failed to generate brief' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000)
+    } finally {
+      setBriefLoading(false)
+    }
+  }
+
+  const handleClassifyMessages = async () => {
+    try {
+      setMessage({ type: 'info', text: 'Classifying messages...' })
+      
+      // First, get messages from integrations service
+      const messagesResponse = await integrationsAPI.listMessages({ 
+        limit: 100,
+        sort_by: 'created_at',
+        sort_order: 'desc'
+      })
+      const messagesList = Array.isArray(messagesResponse) ? messagesResponse : []
+      
+      if (messagesList.length === 0) {
+        setMessage({ type: 'error', text: 'No messages found to classify' })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+        return
+      }
+
+      // Get message IDs (need to map from integrations messages to classification messages)
+      // Note: This is a simplified approach - in reality, you'd need to sync messages first
+      // For now, we'll use the message IDs directly if they're UUIDs
+      const messageIds = messagesList
+        .map(msg => msg.id)
+        .filter(id => id) // Filter out any invalid IDs
+      
+      if (messageIds.length === 0) {
+        setMessage({ type: 'error', text: 'No valid message IDs found' })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+        return
+      }
+
+      // Classify messages
+      const classificationResponse = await classificationAPI.classifyMessages({
+        message_ids: messageIds.slice(0, 50) // Limit to 50 messages
+      })
+      
+      setClassifications(classificationResponse.classifications || [])
+      setMessage({ type: 'success', text: `Classified ${classificationResponse.success_count || 0} messages successfully!` })
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+    } catch (error) {
+      console.error('Failed to classify messages:', error)
+      setMessage({ type: 'error', text: error.message || 'Failed to classify messages' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000)
+    }
+  }
+
+  const handleGenerateTasksFromClassifications = async () => {
+    try {
+      if (classifications.length === 0) {
+        setMessage({ type: 'error', text: 'No classifications available. Please classify messages first.' })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+        return
+      }
+
+      setMessage({ type: 'info', text: 'Generating tasks from classifications...' })
+      
+      const classificationIds = classifications.map(c => c.cls_id || c.id)
+      const response = await classificationAPI.generateTasks({
+        classification_ids: classificationIds,
+        user_id: TEST_USER_ID
+      })
+      
+      setMessage({ type: 'success', text: `Generated ${response.total_generated || 0} tasks successfully!` })
+      // Reload tasks to show newly generated ones
+      await loadTasks()
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+    } catch (error) {
+      console.error('Failed to generate tasks:', error)
+      setMessage({ type: 'error', text: error.message || 'Failed to generate tasks' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000)
+    }
   }
 
   const today = new Date()
@@ -86,6 +328,12 @@ function DailyBrief() {
           </button>
           <button className="nav-button" onClick={handleFetchNewEmails}>
             Fetch New Emails
+          </button>
+          <button className="nav-button" onClick={handleClassifyMessages}>
+            Classify Messages
+          </button>
+          <button className="nav-button" onClick={handleGenerateBrief}>
+            Generate Brief
           </button>
         </div>
       </header>
@@ -130,7 +378,14 @@ function DailyBrief() {
         <main className="app-main">
           <div className="daily-brief">
             <div className="brief-header">
-              <h2 className="brief-title">Daily Brief</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h2 className="brief-title">Daily Brief</h2>
+                {brief && (
+                  <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                    {brief.high_priority_count} high priority • {brief.todo_count} todos • {brief.followup_count} follow-ups
+                  </div>
+                )}
+              </div>
               <p className="brief-date">
                 {dateStr} • Today • {dayName} •{' '}
                 <span 
@@ -167,15 +422,96 @@ function DailyBrief() {
               </p>
             </div>
 
+          {/* Brief Items Section */}
+          {brief && brief.items && brief.items.length > 0 && (
+            <div className="task-section task-section-brief">
+              <div className="section-header">
+                <span className="chevron">▼</span>
+                <h3 className="section-title">Brief Items ({brief.items.length})</h3>
+              </div>
+              <div className="section-content">
+                {brief.items.map((item, index) => (
+                  <div key={index} className="brief-item">
+                    <div className="brief-item-header">
+                      <span className="brief-item-priority" style={{ 
+                        color: item.priority_score >= 7 ? '#d32f2f' : '#1976d2' 
+                      }}>
+                        Priority: {item.priority_score}
+                      </span>
+                      <span className="brief-item-label" style={{
+                        backgroundColor: item.title.toLowerCase().includes('todo') ? '#e3f2fd' :
+                                         item.title.toLowerCase().includes('followup') ? '#fff3e0' : '#f5f5f5',
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.85rem'
+                      }}>
+                        {item.title.split(':')[0]}
+                      </span>
+                    </div>
+                    <div className="brief-item-title">{item.title}</div>
+                    <div className="brief-item-description">{item.description}</div>
+                    <div className="brief-item-meta">
+                      <span>From: {item.sender}</span>
+                      <span>Channel: {item.channel}</span>
+                      {item.extracted_tasks && item.extracted_tasks.length > 0 && (
+                        <span>Tasks: {item.extracted_tasks.length}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {classifications.length > 0 && (
+                  <button 
+                    className="btn-generate-tasks" 
+                    onClick={handleGenerateTasksFromClassifications}
+                    style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}
+                  >
+                    Generate Tasks from Classifications
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Overdue Section */}
           <div className="task-section task-section-overdue">
             <div className="section-header" onClick={() => toggleSection('overdue')}>
               <span className="chevron">{expandedSections.overdue ? '▼' : '▶'}</span>
-              <h3 className="section-title">Overdue</h3>
+              <h3 className="section-title">Overdue ({overdueTasks.length})</h3>
             </div>
             {expandedSections.overdue && (
               <div className="section-content">
-                {/* Tasks will appear here */}
+                {tasksLoading ? (
+                  <div className="loading-state">Loading tasks...</div>
+                ) : overdueTasks.length === 0 ? (
+                  <div className="empty-state">No overdue tasks</div>
+                ) : (
+                  overdueTasks.map(task => (
+                    <div key={task.task_id} className="task-item">
+                      <input
+                        type="checkbox"
+                        className="task-checkbox"
+                        checked={task.status === 'done'}
+                        onChange={() => handleTaskStatusToggle(task.task_id, task.status)}
+                      />
+                      <div className="task-content">
+                        <div className="task-text">{task.title}</div>
+                        <div className="task-meta">
+                          {task.due_at && (
+                            <span className="task-due">
+                              Due: {new Date(task.due_at).toLocaleDateString()}
+                            </span>
+                          )}
+                          {task.priority && (
+                            <span className="task-priority">Priority: {task.priority}</span>
+                          )}
+                          {task.sender && (
+                            <span className="task-sender">From: {task.sender}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             )}
           </div>
@@ -184,11 +520,42 @@ function DailyBrief() {
           <div className="task-section task-section-todo">
             <div className="section-header" onClick={() => toggleSection('todo')}>
               <span className="chevron">{expandedSections.todo ? '▼' : '▶'}</span>
-              <h3 className="section-title">To do</h3>
+              <h3 className="section-title">To do ({todoTasks.length})</h3>
             </div>
             {expandedSections.todo && (
               <div className="section-content">
-                {/* Tasks will appear here */}
+                {tasksLoading ? (
+                  <div className="loading-state">Loading tasks...</div>
+                ) : todoTasks.length === 0 ? (
+                  <div className="empty-state">No tasks to do</div>
+                ) : (
+                  todoTasks.map(task => (
+                    <div key={task.task_id} className="task-item">
+                      <input
+                        type="checkbox"
+                        className="task-checkbox"
+                        checked={task.status === 'done'}
+                        onChange={() => handleTaskStatusToggle(task.task_id, task.status)}
+                      />
+                      <div className="task-content">
+                        <div className="task-text">{task.title}</div>
+                        <div className="task-meta">
+                          {task.due_at && (
+                            <span className="task-due">
+                              Due: {new Date(task.due_at).toLocaleDateString()}
+                            </span>
+                          )}
+                          {task.priority && (
+                            <span className="task-priority">Priority: {task.priority}</span>
+                          )}
+                          {task.sender && (
+                            <span className="task-sender">From: {task.sender}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             )}
           </div>
@@ -201,7 +568,9 @@ function DailyBrief() {
             </div>
             {expandedSections.followup && (
               <div className="section-content">
-                {/* Tasks will appear here */}
+                <div className="empty-state">
+                  Follow-up functionality is not yet implemented
+                </div>
               </div>
             )}
           </div>

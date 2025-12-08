@@ -1,7 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import '../styles/AccountInbox.css'
 import '../App.css'
+import { integrationsAPI } from '../services/api.js'
+import { TEST_USER_ID } from '../config/api.js'
 
 function AccountInbox() {
   const { accountId } = useParams()
@@ -10,67 +12,241 @@ function AccountInbox() {
   const [chatInput, setChatInput] = useState('')
   const [isConnected, setIsConnected] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
+  const [connectedAccounts, setConnectedAccounts] = useState([
+    { id: 'all', name: 'All Accounts', type: 'all', icon: '📋' }
+  ])
+  const [messages, setMessages] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [currentConnection, setCurrentConnection] = useState(null)
 
-  // Mock connected accounts - same as Daily Brief
-  const connectedAccounts = [
-    { id: 'all', name: 'All Accounts', type: 'all', icon: '📋' },
-    { id: 'gmail1', name: 'work@gmail.com', type: 'gmail', icon: '📧' },
-    { id: 'gmail2', name: 'personal@gmail.com', type: 'gmail', icon: '📧' },
-    { id: 'gmail3', name: 'team@gmail.com', type: 'gmail', icon: '📧' },
-    { id: 'slack1', name: 'Work Team', type: 'slack', icon: '💬' }
-  ]
+  // Load connections and messages on mount
+  useEffect(() => {
+    loadConnections()
+  }, [])
 
-  const handleConnect = () => {
-    navigate('/login')
+  useEffect(() => {
+    if (accountId && accountId !== 'all') {
+      loadMessagesForAccount(accountId)
+    } else {
+      loadAllMessages()
+    }
+  }, [accountId])
+
+  const loadConnections = async () => {
+    try {
+      const response = await integrationsAPI.listConnections({ 
+        is_active: true,
+        limit: 100 
+      })
+      const connections = Array.isArray(response) ? response : (response.items || [])
+      
+      const accounts = [
+        { id: 'all', name: 'All Accounts', type: 'all', icon: '📋' },
+        ...connections.map(conn => ({
+          id: conn.id,
+          name: conn.provider_account_id || `${conn.provider} Account`,
+          type: conn.provider?.toLowerCase() || 'unknown',
+          icon: conn.provider?.toLowerCase() === 'gmail' ? '📧' : 
+                conn.provider?.toLowerCase() === 'slack' ? '💬' : '📋',
+          connection: conn
+        }))
+      ]
+      
+      setConnectedAccounts(accounts)
+      setIsConnected(connections.length > 0)
+      
+      // Set current connection if accountId is specified
+      if (accountId && accountId !== 'all') {
+        const conn = connections.find(c => c.id === accountId)
+        setCurrentConnection(conn)
+      }
+    } catch (error) {
+      console.error('Failed to load connections:', error)
+      let errorMessage = 'Failed to load connections'
+      
+      // Check for network errors
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError') || error.message?.includes('ERR_CONNECTION_REFUSED')) {
+        errorMessage = `Cannot connect to API server. Please ensure the composite service is running on port 8002. Error: ${error.message}`
+      } else {
+        errorMessage = `Failed to load connections: ${error.message || 'Unknown error'}`
+      }
+      
+      setMessage({ 
+        type: 'error', 
+        text: errorMessage
+      })
+      setTimeout(() => setMessage({ type: '', text: '' }), 8000)
+    }
   }
 
-  const handleFetchNewEmails = () => {
+  const loadMessagesForAccount = async (connectionId) => {
+    try {
+      setLoading(true)
+      
+      // Fetch all messages and filter by connection_id on client side
+      // (API may not support connection_id filter directly)
+      const response = await integrationsAPI.listMessages({ 
+        limit: 1000, // Get more to filter
+        sort_by: 'created_at',
+        sort_order: 'desc'
+      })
+      
+      // Integrations service returns List[MessageRead] directly (array)
+      const messagesList = Array.isArray(response) ? response : []
+      
+      // Note: Messages don't have connection_id field - they're user-scoped
+      // All messages for the user will be returned, we can't filter by connection
+      // This is a limitation of the current API design
+      
+      setMessages(messagesList.map(msg => {
+        // Use internal_date if available (Unix timestamp in milliseconds), otherwise use created_at
+        let dateStr = 'Unknown'
+        if (msg.internal_date) {
+          dateStr = new Date(msg.internal_date).toLocaleDateString()
+        } else if (msg.created_at) {
+          dateStr = new Date(msg.created_at).toLocaleDateString()
+        }
+        
+        return {
+          id: msg.id,
+          from: 'Unknown Sender', // Would need to parse raw field for actual sender
+          subject: msg.snippet ? msg.snippet.substring(0, 50) : '(No Subject)', // Use snippet as subject placeholder
+          preview: msg.snippet || '', // Use snippet field from API
+          date: dateStr,
+          unread: false, // Messages don't have is_read field
+          type: 'email', // Default type
+          body: msg.raw || '', // Base64 encoded raw message
+          snippet: msg.snippet || '',
+          external_id: msg.external_id,
+          internal_date: msg.internal_date
+        }
+      }))
+    } catch (error) {
+      console.error('Failed to load messages:', error)
+      setMessage({ type: 'error', text: 'Failed to load messages' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadAllMessages = async () => {
+    try {
+      setLoading(true)
+      
+      const response = await integrationsAPI.listMessages({ 
+        limit: 100,
+        sort_by: 'created_at',
+        sort_order: 'desc'
+      })
+      
+      // Integrations service returns List[MessageRead] directly (array)
+      const messagesList = Array.isArray(response) ? response : []
+      setMessages(messagesList.map(msg => {
+        // Use internal_date if available (Unix timestamp in milliseconds), otherwise use created_at
+        let dateStr = 'Unknown'
+        if (msg.internal_date) {
+          dateStr = new Date(msg.internal_date).toLocaleDateString()
+        } else if (msg.created_at) {
+          dateStr = new Date(msg.created_at).toLocaleDateString()
+        }
+        
+        return {
+          id: msg.id,
+          from: 'Unknown Sender', // Would need to parse raw field for actual sender
+          subject: msg.snippet ? msg.snippet.substring(0, 50) : '(No Subject)', // Use snippet as subject placeholder
+          preview: msg.snippet || '', // Use snippet field from API
+          date: dateStr,
+          unread: false, // Messages don't have is_read field
+          type: 'email', // Default type
+          body: msg.raw || '', // Base64 encoded raw message
+          snippet: msg.snippet || '',
+          external_id: msg.external_id,
+          internal_date: msg.internal_date
+        }
+      }))
+    } catch (error) {
+      console.error('Failed to load messages:', error)
+      setMessage({ type: 'error', text: 'Failed to load messages' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleConnect = () => {
+    navigate('/settings')
+  }
+
+  const handleFetchNewEmails = async () => {
     if (!isConnected) {
       setMessage({ type: 'error', text: 'Please connect to email first' })
       setTimeout(() => setMessage({ type: '', text: '' }), 2000)
       return
     }
-    setMessage({ type: 'success', text: 'Fetching new emails and messages...' })
-    setTimeout(() => {
-      setMessage({ type: 'success', text: 'New emails and messages retrieved!' })
-      setTimeout(() => setMessage({ type: '', text: '' }), 2000)
-    }, 1000)
+
+    try {
+      setMessage({ type: 'info', text: 'Syncing new emails and messages...' })
+      
+      const connectionsToSync = currentConnection 
+        ? [currentConnection] 
+        : connectedAccounts.filter(acc => acc.id !== 'all' && acc.connection?.is_active)
+          .map(acc => acc.connection)
+
+      if (connectionsToSync.length === 0) {
+        setMessage({ type: 'error', text: 'No active connections to sync' })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+        return
+      }
+
+      // Create syncs for connections
+      const syncPromises = connectionsToSync.map(conn => 
+        integrationsAPI.createSync({
+          connection_id: conn.id,
+          user_id: TEST_USER_ID,
+          sync_type: 'incremental'
+        }).catch(error => {
+          console.error(`Failed to sync connection ${conn.id}:`, error)
+          return null
+        })
+      )
+
+      await Promise.all(syncPromises)
+      
+      // Reload messages after sync (give sync time to complete)
+      setTimeout(async () => {
+        console.log('[AccountInbox] Reloading messages after sync...')
+        if (accountId && accountId !== 'all') {
+          await loadMessagesForAccount(accountId)
+        } else {
+          await loadAllMessages()
+        }
+        
+        // Check if any messages were actually synced
+        const messageCount = accountId && accountId !== 'all' 
+          ? messages.filter(m => m.connection_id === accountId).length
+          : messages.length
+        
+        if (messageCount === 0) {
+          setMessage({ 
+            type: 'warning', 
+            text: 'Sync completed, but no messages found. Gmail API integration may not be fully implemented yet.' 
+          })
+        } else {
+          setMessage({ type: 'success', text: `Sync completed! Found ${messageCount} message(s).` })
+        }
+        setTimeout(() => setMessage({ type: '', text: '' }), 5000)
+      }, 3000) // Increased timeout to allow sync to complete
+    } catch (error) {
+      console.error('Failed to sync messages:', error)
+      setMessage({ type: 'error', text: error.message || 'Failed to sync messages' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000)
+    }
   }
 
   const handleAddAccount = () => {
-    navigate('/login')
+    navigate('/settings')
   }
-
-  // Mock messages - in real app, this would come from API based on accountId
-  const messages = [
-    {
-      id: 1,
-      from: 'john.doe@example.com',
-      subject: 'Meeting Tomorrow at 2 PM',
-      preview: 'Hi, just confirming our meeting tomorrow at 2 PM. Looking forward to discussing the project...',
-      date: 'Yesterday',
-      unread: true,
-      type: 'email'
-    },
-    {
-      id: 2,
-      from: 'sarah.smith@example.com',
-      subject: 'Project Update Required',
-      preview: 'Could you please provide an update on the current project status? We need this by end of week...',
-      date: 'Yesterday',
-      unread: true,
-      type: 'email'
-    },
-    {
-      id: 3,
-      from: '#general',
-      subject: 'Team Standup Reminder',
-      preview: 'Reminder: Weekly standup meeting is scheduled for Friday at 10 AM...',
-      date: 'Mon',
-      unread: false,
-      type: 'slack'
-    }
-  ]
 
   const handleMessageClick = (message) => {
     setSelectedMessage(message)
@@ -162,7 +338,17 @@ function AccountInbox() {
           </div>
         </div>
         <div className="messages-list">
-          {messages.map(message => (
+          {loading ? (
+            <div className="loading-state">Loading messages...</div>
+          ) : messages.length === 0 ? (
+            <div className="empty-state">
+              <p>No messages found</p>
+              <button className="btn-sync" onClick={handleFetchNewEmails}>
+                Sync Messages
+              </button>
+            </div>
+          ) : (
+            messages.map(message => (
             <div
               key={message.id}
               className={`message-item ${selectedMessage?.id === message.id ? 'selected' : ''} ${message.unread ? 'unread' : ''}`}
@@ -180,7 +366,8 @@ function AccountInbox() {
                 <div className="message-preview">{message.preview}</div>
               </div>
             </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
@@ -201,8 +388,14 @@ function AccountInbox() {
                 <p><strong>Type:</strong> {selectedMessage.type}</p>
               </div>
               <div className="message-body">
-                <p>{selectedMessage.preview}</p>
-                <p>This is the full email content. In a real application, this would be fetched from the email service and display the complete conversation thread.</p>
+                {selectedMessage.body ? (
+                  <div dangerouslySetInnerHTML={{ __html: selectedMessage.body.replace(/\n/g, '<br>') }} />
+                ) : (
+                  <>
+                    <p>{selectedMessage.preview}</p>
+                    <p>Full message content not available. This may be a preview-only message.</p>
+                  </>
+                )}
               </div>
             </div>
           </div>
