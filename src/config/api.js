@@ -1,9 +1,8 @@
 /**
  * API Configuration
  * 
- * This file contains the base URL for the integrations microservice.
- * Currently configured to connect directly to the deployed integrations service (ms2).
- * When other services are ready, switch back to composite service.
+ * This file contains the base URL for the composite microservice.
+ * The composite service coordinates multiple atomic microservices (integrations, actions, classification).
  */
 
 // API Configuration
@@ -19,12 +18,12 @@ const isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'developme
 
 // In development, use relative URLs (goes through Vite proxy)
 // In production, use full URLs to the deployed services
-const INTEGRATIONS_MS_IP = import.meta.env.VITE_API_HOST || '35.188.76.100';
-const INTEGRATIONS_MS_PORT = import.meta.env.VITE_API_PORT || '8000';
+const COMPOSITE_MS_IP = import.meta.env.VITE_API_HOST || '35.239.94.117';
+const COMPOSITE_MS_PORT = import.meta.env.VITE_API_PORT || '8000';
 
 export const API_BASE_URL = isDevelopment 
   ? '' // Empty string = relative URLs, will use Vite proxy
-  : `http://${INTEGRATIONS_MS_IP}:${INTEGRATIONS_MS_PORT}`;
+  : `http://${COMPOSITE_MS_IP}:${COMPOSITE_MS_PORT}`;
 
 // Debug logging (only in development)
 if (isDevelopment) {
@@ -44,17 +43,17 @@ export const TEST_USER_ID = '3aab3fba-9f4d-48ee-bee5-c1df257c33cc';
 export const TEST_USER_ID_INT = 1;
 
 // API endpoint paths
-// Note: Direct paths to integrations service (no /api/integrations prefix)
+// Composite service uses /api prefix for all service endpoints
 export const API_PATHS = {
-  // Health check
+  // Health check (composite service root health endpoint)
   HEALTH: '/health',
   
-  // Integrations endpoints (direct paths, no composite prefix)
+  // Integrations endpoints (prefixed with /api/integrations)
   INTEGRATIONS: {
-    BASE: '',
-    CONNECTIONS: '/connections',
-    MESSAGES: '/messages',
-    SYNCS: '/syncs',
+    BASE: '/api/integrations',
+    CONNECTIONS: '/api/integrations/connections',
+    MESSAGES: '/api/integrations/messages',
+    SYNCS: '/api/integrations/syncs',
   },
   
   // Actions endpoints

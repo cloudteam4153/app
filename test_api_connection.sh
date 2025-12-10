@@ -3,7 +3,7 @@
 # Test API Connection Script
 # This script tests the connection to the backend API server
 
-API_URL="http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app"
+API_URL="http://35.239.94.117:8000"
 HEALTH_ENDPOINT="${API_URL}/health"
 
 echo "========================================="
@@ -54,7 +54,7 @@ echo "   Response time: ${RESPONSE_TIME_MS}ms"
 # Test 4: Test other endpoints (if health check works)
 echo ""
 echo "4. Testing other endpoints..."
-ENDPOINTS=("/connections" "/messages")
+ENDPOINTS=("/api/integrations/connections" "/api/integrations/messages")
 for endpoint in "${ENDPOINTS[@]}"; do
     FULL_URL="${API_URL}${endpoint}"
     echo -n "   Testing ${endpoint}... "

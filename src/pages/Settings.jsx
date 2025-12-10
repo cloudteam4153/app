@@ -115,7 +115,7 @@ function Settings() {
 
   const handleTestAPIConnection = async () => {
     try {
-      setMessage({ type: 'info', text: 'Testing API connection to http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app...' })
+      setMessage({ type: 'info', text: 'Testing API connection to http://35.239.94.117:8000...' })
       
       const startTime = Date.now()
       const healthResponse = await healthAPI.check()
@@ -137,7 +137,7 @@ function Settings() {
       // Provide helpful error messages
       let userMessage = `API connection failed: ${errorMessage}`
       if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
-        userMessage = `Cannot connect to http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app. Please check:\n1. The server is running\n2. Your network connection\n3. Firewall settings\n\nError: ${errorMessage}`
+        userMessage = `Cannot connect to http://35.239.94.117:8000. Please check:\n1. The server is running\n2. Your network connection\n3. Firewall settings\n\nError: ${errorMessage}`
       }
       
       setMessage({ type: 'error', text: userMessage })
@@ -200,7 +200,7 @@ function Settings() {
             <div className="account-info">
               <h4>Backend API Server</h4>
               <p className="account-status" style={{ marginTop: '0.5rem' }}>
-                <code style={{ fontSize: '0.9em', color: '#666' }}>http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app</code>
+                <code style={{ fontSize: '0.9em', color: '#666' }}>http://35.239.94.117:8000</code>
               </p>
               <p className="account-meta" style={{ marginTop: '0.5rem', fontSize: '0.85em', color: '#888' }}>
                 Click "Test Connection" to verify the API server is reachable and healthy.

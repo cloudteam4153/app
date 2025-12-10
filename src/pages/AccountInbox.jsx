@@ -66,7 +66,7 @@ function AccountInbox() {
       
       // Check for network errors
       if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError') || error.message?.includes('ERR_CONNECTION_REFUSED')) {
-        errorMessage = `Cannot connect to API server. Please ensure the composite service is running on port 8002. Error: ${error.message}`
+        errorMessage = `Cannot connect to API server. Please ensure the composite service is running on http://35.239.94.117:8000. Error: ${error.message}`
       } else {
         errorMessage = `Failed to load connections: ${error.message || 'Unknown error'}`
       }

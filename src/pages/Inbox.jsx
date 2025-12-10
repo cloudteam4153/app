@@ -72,7 +72,7 @@ function Inbox() {
       if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('ERR_CONNECTION_REFUSED')) {
         setMessage({ 
           type: 'error', 
-          text: `Cannot connect to API server. Please ensure the integrations service is running on integrations-svc-ms2-ft4pa23xra-uc.a.run.app. Error: ${errorMessage}` 
+          text: `Cannot connect to API server. Please ensure the composite service is running on http://35.239.94.117:8000. Error: ${errorMessage}` 
         })
       } else {
         setMessage({ 
