@@ -32,9 +32,28 @@ export default defineConfig({
           });
           proxy.on('proxyReq', (proxyReq, req, _res) => {
             console.log('Proxying request:', req.method, req.url, '->', proxyReq.path);
+            // Log request body for PATCH/POST requests
+            if (req.method === 'PATCH' || req.method === 'POST' || req.method === 'PUT') {
+              let body = '';
+              req.on('data', chunk => { body += chunk.toString(); });
+              req.on('end', () => {
+                if (body) {
+                  try {
+                    const parsed = JSON.parse(body);
+                    console.log('[Proxy] Request body:', JSON.stringify(parsed, null, 2));
+                  } catch (e) {
+                    console.log('[Proxy] Request body (raw):', body);
+                  }
+                }
+              });
+            }
           });
           proxy.on('proxyRes', (proxyRes, req, _res) => {
             rewriteRedirectLocation(proxyRes, req);
+            // Log response status for debugging
+            if (proxyRes.statusCode >= 400) {
+              console.log(`[Proxy] Response: ${req.method} ${req.url} -> ${proxyRes.statusCode} ${proxyRes.statusMessage}`);
+            }
           });
         },
       },
