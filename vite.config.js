@@ -17,6 +17,7 @@ function rewriteRedirectLocation(proxyRes, req) {
 }
 
 export default defineConfig({
+  base: '/unified-inbox-app-1765383702/', // Absolute base path for GCS hosting
   plugins: [react()],
   server: {
     proxy: {

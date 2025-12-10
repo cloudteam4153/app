@@ -1,5 +1,5 @@
 import React from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import DailyBrief from './pages/DailyBrief'
 import AccountInbox from './pages/AccountInbox'
@@ -10,6 +10,7 @@ import './App.css'
 function App() {
   return (
     <Routes>
+      <Route path="/index.html" element={<Navigate to="/" replace />} />
       <Route path="/" element={<DailyBrief />} />
       <Route path="/daily-brief" element={<DailyBrief />} />
       <Route path="/login" element={<Login />} />
