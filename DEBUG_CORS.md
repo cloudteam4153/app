@@ -10,11 +10,11 @@ Follow these steps in order to identify where the issue is:
 4. Look for these logs:
    - `[API Config] Development mode detected`
    - `[API Config] API_BASE_URL:` (should be empty string `""`)
-   - `[API Debug] Full URL:` (should be a relative URL like `/connections`, NOT `http://35.188.76.100:8000/connections`)
+   - `[API Debug] Full URL:` (should be a relative URL like `/connections`, NOT `http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app/connections`)
 
 **What to check:**
 - ✅ If `API_BASE_URL` is empty string → Configuration is correct
-- ❌ If `API_BASE_URL` is `http://35.188.76.100:8000` → Configuration issue
+- ❌ If `API_BASE_URL` is `http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app` → Configuration issue
 - ✅ If Full URL is relative (starts with `/`) → Will use proxy
 - ❌ If Full URL is absolute (starts with `http://`) → Will NOT use proxy
 
@@ -32,7 +32,7 @@ Follow these steps in order to identify where the issue is:
 **What to check:**
 - **Request URL**: Should be `http://localhost:5173/connections` (or your Vite port)
   - ✅ Correct: `http://localhost:5173/connections`
-  - ❌ Wrong: `http://35.188.76.100:8000/connections`
+  - ❌ Wrong: `http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app/connections`
 - **Status**: What status code? (404, 500, CORS error?)
 - **Response**: What does the response say?
 
@@ -58,10 +58,10 @@ Test if the backend is actually reachable:
 
 ```bash
 # Test if backend is accessible
-curl http://35.188.76.100:8000/health
+curl http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app/health
 
 # Or test from browser (open in new tab):
-# http://35.188.76.100:8000/health
+# http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app/health
 ```
 
 **What to check:**
@@ -76,7 +76,7 @@ Test if Vite proxy is working:
 
 1. Make sure Vite dev server is running on `http://localhost:5173` (or check your port)
 2. Open browser and go to: `http://localhost:5173/health`
-3. This should proxy to `http://35.188.76.100:8000/health`
+3. This should proxy to `http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app/health`
 
 **What to check:**
 - ✅ If you see JSON response → Proxy is working
@@ -91,8 +91,8 @@ Check that `vite.config.js` has the proxy configuration:
 ```javascript
 server: {
   proxy: {
-    '/connections': { target: 'http://35.188.76.100:8000', ... },
-    '/messages': { target: 'http://35.188.76.100:8000', ... },
+    '/connections': { target: 'http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app', ... },
+    '/messages': { target: 'http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app', ... },
     // etc.
   }
 }
@@ -130,14 +130,14 @@ Check if any environment variables are overriding the config:
 
 ### Issue 3: Backend not reachable
 **Solution**: 
-- Check if `35.188.76.100:8000` is accessible from your machine
+- Check if `integrations-svc-ms2-ft4pa23xra-uc.a.run.app` is accessible from your machine
 - Check firewall/network settings
 - Verify the backend service is actually running
 
 ### Issue 4: CORS error still appears
 **Solution**: 
 - Make sure the request is going through the proxy (check Network tab - URL should be localhost)
-- If URL is still `35.188.76.100:8000`, the proxy isn't working
+- If URL is still `integrations-svc-ms2-ft4pa23xra-uc.a.run.app`, the proxy isn't working
 
 ---
 
@@ -147,7 +147,7 @@ Run this in browser console to test:
 
 ```javascript
 // Test 1: Check API_BASE_URL
-console.log('API_BASE_URL:', import.meta.env.DEV ? '' : 'http://35.188.76.100:8000');
+console.log('API_BASE_URL:', import.meta.env.DEV ? '' : 'http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app');
 
 // Test 2: Make a test request
 fetch('/health')
@@ -164,5 +164,5 @@ After following these steps, report:
 1. What does `API_BASE_URL` show in console? (empty string or full URL?)
 2. What URL appears in Network tab? (localhost or 35.188.76.100?)
 3. Do you see proxy logs in Vite terminal? (yes/no)
-4. Can you access `http://35.188.76.100:8000/health` directly? (yes/no)
+4. Can you access `http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app/health` directly? (yes/no)
 5. What error message do you see exactly?

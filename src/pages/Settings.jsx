@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../styles/Settings.css'
-import { integrationsAPI } from '../services/api.js'
-import { TEST_USER_ID } from '../config/api.js'
+import { integrationsAPI, healthAPI } from '../services/api.js'
+import { TEST_USER_ID, API_BASE_URL } from '../config/api.js'
 
 function Settings() {
   const [connections, setConnections] = useState([])
@@ -113,6 +113,38 @@ function Settings() {
     }
   }
 
+  const handleTestAPIConnection = async () => {
+    try {
+      setMessage({ type: 'info', text: 'Testing API connection to http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app...' })
+      
+      const startTime = Date.now()
+      const healthResponse = await healthAPI.check()
+      const responseTime = Date.now() - startTime
+      
+      console.log('[Settings] Health check response:', healthResponse)
+      console.log('[Settings] API_BASE_URL:', API_BASE_URL)
+      console.log('[Settings] Response time:', responseTime, 'ms')
+      
+      setMessage({ 
+        type: 'success', 
+        text: `API connection successful! Response time: ${responseTime}ms. Service is healthy.` 
+      })
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000)
+    } catch (error) {
+      console.error('API connection test failed:', error)
+      const errorMessage = error.message || 'Failed to connect to API'
+      
+      // Provide helpful error messages
+      let userMessage = `API connection failed: ${errorMessage}`
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        userMessage = `Cannot connect to http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app. Please check:\n1. The server is running\n2. Your network connection\n3. Firewall settings\n\nError: ${errorMessage}`
+      }
+      
+      setMessage({ type: 'error', text: userMessage })
+      setTimeout(() => setMessage({ type: '', text: '' }), 8000)
+    }
+  }
+
   const getProviderDisplayName = (provider) => {
     const providerMap = {
       'gmail': 'Gmail',
@@ -159,6 +191,24 @@ function Settings() {
       <div className="settings-content">
         <div className="settings-section">
           <div className="section-header-row">
+            <h2>API Connection</h2>
+            <button className="btn-refresh" onClick={handleTestAPIConnection}>
+              Test Connection
+            </button>
+          </div>
+          <div className="account-card" style={{ marginBottom: '2rem' }}>
+            <div className="account-info">
+              <h4>Backend API Server</h4>
+              <p className="account-status" style={{ marginTop: '0.5rem' }}>
+                <code style={{ fontSize: '0.9em', color: '#666' }}>http://integrations-svc-ms2-ft4pa23xra-uc.a.run.app</code>
+              </p>
+              <p className="account-meta" style={{ marginTop: '0.5rem', fontSize: '0.85em', color: '#888' }}>
+                Click "Test Connection" to verify the API server is reachable and healthy.
+              </p>
+            </div>
+          </div>
+
+          <div className="section-header-row" style={{ marginTop: '2rem' }}>
             <h2>Connected Accounts</h2>
             <button className="btn-refresh" onClick={loadConnections} disabled={loading}>
               {loading ? 'Loading...' : 'Refresh'}

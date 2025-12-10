@@ -6,8 +6,10 @@ function rewriteRedirectLocation(proxyRes, req) {
   if (proxyRes.headers.location) {
     const location = proxyRes.headers.location;
     // If redirect points to backend URL, rewrite to relative path
-    if (location.includes('35.188.76.100:8000')) {
-      const relativePath = location.replace(/^https?:\/\/35\.188\.76\.100:8000/, '');
+    if (location.includes('integrations-svc-ms2-ft4pa23xra-uc.a.run.app')) {
+      // Extract the path from the full URL
+      const url = new URL(location);
+      const relativePath = url.pathname + url.search + url.hash;
       proxyRes.headers.location = relativePath;
       console.log('Rewrote redirect:', location, '->', relativePath);
     }
@@ -21,9 +23,9 @@ export default defineConfig({
       // Proxy all API requests to the backend service
       // This avoids CORS issues in development
       '/api': {
-        target: 'http://35.188.76.100:8000',
+        target: 'https://integrations-svc-ms2-ft4pa23xra-uc.a.run.app',
         changeOrigin: true,
-        secure: false,
+        secure: true,
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
             console.log('proxy error', err);
@@ -38,9 +40,9 @@ export default defineConfig({
       },
       // Proxy integrations service endpoints (direct paths)
       '/connections': {
-        target: 'http://35.188.76.100:8000',
+        target: 'https://integrations-svc-ms2-ft4pa23xra-uc.a.run.app',
         changeOrigin: true,
-        secure: false,
+        secure: true,
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {
             console.log('Proxying request:', req.method, req.url, '->', proxyReq.path);
@@ -51,9 +53,9 @@ export default defineConfig({
         },
       },
       '/messages': {
-        target: 'http://35.188.76.100:8000',
+        target: 'https://integrations-svc-ms2-ft4pa23xra-uc.a.run.app',
         changeOrigin: true,
-        secure: false,
+        secure: true,
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {
             console.log('Proxying request:', req.method, req.url, '->', proxyReq.path);
@@ -64,9 +66,9 @@ export default defineConfig({
         },
       },
       '/syncs': {
-        target: 'http://35.188.76.100:8000',
+        target: 'https://integrations-svc-ms2-ft4pa23xra-uc.a.run.app',
         changeOrigin: true,
-        secure: false,
+        secure: true,
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {
             console.log('Proxying request:', req.method, req.url, '->', proxyReq.path);
@@ -77,9 +79,9 @@ export default defineConfig({
         },
       },
       '/health': {
-        target: 'http://35.188.76.100:8000',
+        target: 'https://integrations-svc-ms2-ft4pa23xra-uc.a.run.app',
         changeOrigin: true,
-        secure: false,
+        secure: true,
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {
             console.log('Proxying request:', req.method, req.url, '->', proxyReq.path);

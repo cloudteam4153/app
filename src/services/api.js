@@ -51,17 +51,24 @@ async function apiRequest(endpoint, options = {}) {
     
     if (!response.ok) {
       // Try to get error details from response
+      // Read as text first, then try to parse as JSON to avoid "body stream already read" error
       let errorMessage = response.statusText;
       let errorData = null;
       try {
-        errorData = await response.json();
-        console.error(`[API] Error response data:`, errorData);
-        errorMessage = errorData.detail || errorData.message || errorMessage;
-      } catch (e) {
-        // If response is not JSON, use status text
         const text = await response.text();
-        console.error(`[API] Non-JSON error response:`, text);
-        errorMessage = text || errorMessage;
+        console.error(`[API] Error response text:`, text);
+        // Try to parse as JSON
+        try {
+          errorData = JSON.parse(text);
+          console.error(`[API] Error response data:`, errorData);
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (parseError) {
+          // Not JSON, use text as error message
+          errorMessage = text || errorMessage;
+        }
+      } catch (e) {
+        // If reading text fails, just use status text
+        console.error(`[API] Could not read error response:`, e);
       }
       throw new Error(errorMessage || `HTTP error! status: ${response.status}`);
     }

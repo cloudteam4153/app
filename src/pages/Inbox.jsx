@@ -72,7 +72,7 @@ function Inbox() {
       if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('ERR_CONNECTION_REFUSED')) {
         setMessage({ 
           type: 'error', 
-          text: `Cannot connect to API server. Please ensure the integrations service is running on 35.188.76.100:8000. Error: ${errorMessage}` 
+          text: `Cannot connect to API server. Please ensure the integrations service is running on integrations-svc-ms2-ft4pa23xra-uc.a.run.app. Error: ${errorMessage}` 
         })
       } else {
         setMessage({ 
@@ -402,7 +402,7 @@ function Inbox() {
         ) : emails.length === 0 ? (
           <div className="empty-inbox">
             <p>No emails in inbox</p>
-            <button className="btn-get-mail" onClick={handleGetNewMail} style={{ marginTop: '1rem' }}>
+            <button className="btn-get-mail" onClick={handleSync} style={{ marginTop: '1rem' }}>
               Sync Messages
             </button>
           </div>
