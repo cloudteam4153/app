@@ -14,6 +14,29 @@ import { API_BASE_URL, API_PATHS } from '../config/api.js';
  * @param {Object} options - Fetch options (method, body, headers, etc.)
  * @returns {Promise<Object>} Response data
  */
+/**
+ * Get stored refresh token from localStorage or cookies
+ * @returns {string|null} Refresh token if available
+ */
+function getRefreshToken() {
+  // Try localStorage first
+  const token = localStorage.getItem('refresh_token');
+  if (token) {
+    return token;
+  }
+  
+  // Try to get from cookies
+  const cookies = document.cookie.split(';');
+  for (let cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'refresh_token' || name === 'refreshToken') {
+      return decodeURIComponent(value);
+    }
+  }
+  
+  return null;
+}
+
 async function apiRequest(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
   
@@ -25,11 +48,20 @@ async function apiRequest(endpoint, options = {}) {
   console.log('[API Debug] Is relative URL?', url.startsWith('http') ? 'NO (absolute)' : 'YES (relative - will use proxy)');
   console.log('[API Debug] ==========================================');
   
+  // Get refresh token if available
+  const refreshToken = getRefreshToken();
+  
   const defaultOptions = {
     headers: {
       'Content-Type': 'application/json',
     },
+    credentials: 'include', // Include cookies in requests (important for authentication)
   };
+  
+  // Add Authorization header if refresh token is available
+  if (refreshToken) {
+    defaultOptions.headers['Authorization'] = `Bearer ${refreshToken}`;
+  }
   
   const config = {
     ...defaultOptions,
@@ -38,10 +70,15 @@ async function apiRequest(endpoint, options = {}) {
       ...defaultOptions.headers,
       ...options.headers,
     },
+    // Ensure credentials are included even if options override
+    credentials: options.credentials !== undefined ? options.credentials : 'include',
   };
   
   try {
     console.log(`[API] Making ${config.method || 'GET'} request to: ${url}`, config.body ? { body: JSON.parse(config.body) } : '');
+    if (refreshToken) {
+      console.log('[API] Using refresh token for authentication');
+    }
     
     // fetch() automatically follows redirects (307, 308) by default
     // We don't need to handle them manually
@@ -50,6 +87,16 @@ async function apiRequest(endpoint, options = {}) {
     console.log(`[API] Response status: ${response.status} ${response.statusText}`);
     
     if (!response.ok) {
+      // Check for authentication errors
+      if (response.status === 401) {
+        // Check if backend set any cookies during the response
+        const setCookieHeader = response.headers.get('Set-Cookie');
+        if (setCookieHeader) {
+          console.log('[API] Backend set cookies:', setCookieHeader);
+          // Cookies are automatically handled by the browser when credentials: 'include' is set
+        }
+      }
+      
       // Try to get error details from response
       // Read as text first, then try to parse as JSON to avoid "body stream already read" error
       let errorMessage = response.statusText;
@@ -70,6 +117,14 @@ async function apiRequest(endpoint, options = {}) {
         // If reading text fails, just use status text
         console.error(`[API] Could not read error response:`, e);
       }
+      
+      // Provide more helpful error messages for authentication errors
+      if (response.status === 401) {
+        if (errorMessage.includes('refresh token') || errorMessage.includes('Missing refresh token')) {
+          errorMessage = 'Authentication required. Please ensure you are logged in or complete the OAuth flow to connect your account.';
+        }
+      }
+      
       throw new Error(errorMessage || `HTTP error! status: ${response.status}`);
     }
     

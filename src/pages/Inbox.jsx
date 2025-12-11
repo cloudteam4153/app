@@ -65,6 +65,11 @@ function Inbox() {
       })
       
       setEmails(transformedEmails)
+      
+      // Console log all message IDs from the current inbox
+      const messageIds = transformedEmails.map(email => email.id)
+      console.log('All message IDs from current inbox:', messageIds)
+      console.log('Total messages:', messageIds.length)
     } catch (error) {
       console.error('Failed to load messages:', error)
       const errorMessage = error.message || 'Failed to load messages'

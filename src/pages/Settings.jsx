@@ -12,7 +12,30 @@ function Settings() {
 
   // Fetch connections on mount
   useEffect(() => {
-    loadConnections()
+    // Check for OAuth callback parameters in URL
+    const urlParams = new URLSearchParams(window.location.search)
+    const code = urlParams.get('code')
+    const state = urlParams.get('state')
+    const error = urlParams.get('error')
+    
+    if (error) {
+      setMessage({ type: 'error', text: `OAuth error: ${error}` })
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000)
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname)
+    } else if (code) {
+      // OAuth callback - backend should handle this and set cookies
+      console.log('[Settings] OAuth callback detected, code:', code)
+      setMessage({ type: 'info', text: 'Completing OAuth authorization...' })
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname)
+      // Reload connections after a short delay to allow backend to process
+      setTimeout(() => {
+        loadConnections()
+      }, 1000)
+    } else {
+      loadConnections()
+    }
   }, [])
 
   const loadConnections = async () => {
