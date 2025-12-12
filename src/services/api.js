@@ -179,11 +179,17 @@ export const authAPI = {
   
   /**
    * Connect Gmail account (requires authentication)
+   * @param {string} redirectUrl - Optional frontend URL to redirect to after OAuth
    * @returns {Promise<Object>} OAuth redirect URL with auth_url
    */
-  connectGmail: () => apiRequest(API_PATHS.EXTERNAL.GMAIL, {
+  connectGmail: (redirectUrl) => {
+    const url = redirectUrl 
+      ? `${API_PATHS.EXTERNAL.GMAIL}?redirect=${encodeURIComponent(redirectUrl)}`
+      : API_PATHS.EXTERNAL.GMAIL
+    return apiRequest(url, {
     method: 'POST',
-  }),
+    })
+  },
 };
 
 /**

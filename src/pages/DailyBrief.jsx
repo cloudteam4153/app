@@ -5,7 +5,7 @@ import { integrationsAPI, actionsAPI, classificationAPI } from '../services/api.
 import { useAuth } from '../contexts/AuthContext.jsx'
 
 function DailyBrief() {
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const [expandedSections, setExpandedSections] = useState({
     overdue: true,
     todo: true,
@@ -18,6 +18,7 @@ function DailyBrief() {
   const [connectedAccounts, setConnectedAccounts] = useState([
     { id: 'all', name: 'All Accounts', type: 'all', icon: '📋' }
   ])
+  const [connectedEmails, setConnectedEmails] = useState([])
   const [loading, setLoading] = useState(true)
   const [tasks, setTasks] = useState([])
   const [tasksLoading, setTasksLoading] = useState(true)
@@ -26,13 +27,36 @@ function DailyBrief() {
   const [classifications, setClassifications] = useState([])
   const dropdownRef = useRef(null)
   const navigate = useNavigate()
+  const [hasShownLoginSuccess, setHasShownLoginSuccess] = useState(false)
+
+  // Show login success message on first mount if authenticated
+  useEffect(() => {
+    if (user && isAuthenticated && !hasShownLoginSuccess) {
+      setMessage({ type: 'success', text: 'Login successful! Welcome to Unified Inbox Assistant.' })
+      setHasShownLoginSuccess(true)
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000)
+    }
+  }, [user, isAuthenticated, hasShownLoginSuccess])
 
   // Load connections and tasks on mount
   useEffect(() => {
+    console.log('[DailyBrief] Component mounted, loading connections, tasks, and brief')
     loadConnections()
     loadTasks()
     loadTodayBrief()
   }, [])
+
+  // Debug: Log when connectedEmails changes
+  useEffect(() => {
+    console.log('[DailyBrief] connectedEmails state changed:', connectedEmails)
+    console.log('[DailyBrief] connectedEmails length:', connectedEmails.length)
+  }, [connectedEmails])
+
+  // Debug: Log when connectedAccounts changes
+  useEffect(() => {
+    console.log('[DailyBrief] connectedAccounts state changed:', connectedAccounts)
+    console.log('[DailyBrief] connectedAccounts length:', connectedAccounts.length)
+  }, [connectedAccounts])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -53,13 +77,41 @@ function DailyBrief() {
 
   const loadConnections = async () => {
     try {
+      console.log('[DailyBrief] Loading connections...')
       setLoading(true)
       const response = await integrationsAPI.listConnections({ 
         is_active: true,
         limit: 100 
       })
+      console.log('[DailyBrief] Connections API response:', response)
+      console.log('[DailyBrief] Response type:', typeof response)
+      console.log('[DailyBrief] Is array?', Array.isArray(response))
+      
       // Integrations service returns List[ConnectionRead] directly (array)
       const connections = Array.isArray(response) ? response : []
+      console.log('[DailyBrief] Parsed connections:', connections)
+      console.log('[DailyBrief] Number of connections:', connections.length)
+      
+      // Log each connection's structure
+      connections.forEach((conn, index) => {
+        console.log(`[DailyBrief] Connection ${index}:`, {
+          id: conn.id,
+          provider: conn.provider,
+          provider_account_id: conn.provider_account_id,
+          status: conn.status,
+          is_active: conn.is_active,
+          full_object: conn
+        })
+      })
+      
+      // Extract email addresses from connections
+      const emails = connections
+        .filter(conn => conn.provider_account_id)
+        .map(conn => conn.provider_account_id)
+      console.log('[DailyBrief] Extracted emails:', emails)
+      console.log('[DailyBrief] Number of emails found:', emails.length)
+      setConnectedEmails(emails)
+      console.log('[DailyBrief] Set connectedEmails state to:', emails)
       
       const accounts = [
         { id: 'all', name: 'All Accounts', type: 'all', icon: '📋' },
@@ -71,14 +123,23 @@ function DailyBrief() {
                 conn.provider?.toLowerCase() === 'slack' ? '💬' : '📋'
         }))
       ]
-      
+      console.log('[DailyBrief] Created accounts array:', accounts)
       setConnectedAccounts(accounts)
       setIsConnected(connections.length > 0)
+      console.log('[DailyBrief] Connection loading complete. isConnected:', connections.length > 0)
     } catch (error) {
-      console.error('Failed to load connections:', error)
+      console.error('[DailyBrief] Failed to load connections:', error)
+      console.error('[DailyBrief] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        response: error.response
+      })
       // Don't show error on initial load, just set empty state
+      setConnectedEmails([])
+      console.log('[DailyBrief] Set connectedEmails to empty array due to error')
     } finally {
       setLoading(false)
+      console.log('[DailyBrief] loadConnections finished, loading set to false')
     }
   }
 
@@ -351,6 +412,24 @@ function DailyBrief() {
         <div className="header-left">
           <h1>Unified Inbox Assistant</h1>
           <p className="subtitle">Gmail + Slack • Daily Brief • Task Management</p>
+          {isAuthenticated && user && (
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px', 
+              marginTop: '4px',
+              fontSize: '0.85rem',
+              color: '#4caf50'
+            }}>
+              <span style={{ fontSize: '0.75rem' }}>✓</span>
+              <span>Logged in</span>
+              {user.id && (
+                <span style={{ color: '#666', fontSize: '0.75rem' }}>
+                  (ID: {user.id.substring(0, 8)}...)
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className="header-nav">
           <button className="nav-button" onClick={handleConnect}>
@@ -375,22 +454,43 @@ function DailyBrief() {
       <div className="brief-layout">
         <aside className="brief-sidebar">
           <div className="sidebar-accounts">
-            {connectedAccounts.map(account => (
-              <button
-                key={account.id}
-                className={`account-item ${selectedAccount === account.id ? 'active' : ''}`}
-                onClick={() => {
-                  setSelectedAccount(account.id)
-                  if (account.id !== 'all') {
-                    navigate(`/account/${account.id}`)
-                  }
-                }}
-                title={account.name}
-              >
-                <span className="account-icon">{account.icon}</span>
-                <span className="account-name">{account.name}</span>
-              </button>
-            ))}
+            {(() => {
+              console.log('[DailyBrief] Rendering sidebar accounts. connectedAccounts:', connectedAccounts)
+              console.log('[DailyBrief] Rendering sidebar accounts. connectedEmails:', connectedEmails)
+              console.log('[DailyBrief] Rendering sidebar accounts. connectedEmails.length:', connectedEmails.length)
+              return connectedAccounts.map(account => {
+                const shouldShowEmail = account.id === 'all' && connectedEmails.length > 0
+                console.log(`[DailyBrief] Rendering account: ${account.name}, shouldShowEmail: ${shouldShowEmail}`)
+                return (
+                  <button
+                    key={account.id}
+                    className={`account-item ${selectedAccount === account.id ? 'active' : ''}`}
+                    onClick={() => {
+                      setSelectedAccount(account.id)
+                      if (account.id !== 'all') {
+                        navigate(`/account/${account.id}`)
+                      }
+                    }}
+                    title={account.name}
+                  >
+                    <span className="account-icon">{account.icon}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', flex: 1 }}>
+                      <span className="account-name">{account.name}</span>
+                      {shouldShowEmail && (
+                        <span style={{ 
+                          fontSize: '0.75rem', 
+                          color: '#666', 
+                          marginTop: '2px',
+                          fontWeight: 'normal'
+                        }}>
+                          {connectedEmails.join(', ')}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                )
+              })
+            })()}
             <button className="account-item add-account-btn" onClick={handleAddAccount}>
               <span className="account-icon">+</span>
               <span className="account-name">Add Account</span>

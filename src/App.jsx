@@ -128,8 +128,8 @@ function GmailCallback() {
       }
 
       // Backend has already created the connection
-      // Redirect to settings page to show updated connections
-      navigate('/settings?connected=gmail', { replace: true })
+      // Redirect to home page after successful connection
+      navigate('/', { replace: true })
     }
 
     handleCallback()

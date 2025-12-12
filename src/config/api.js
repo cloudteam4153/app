@@ -16,19 +16,18 @@
 // import.meta.env.MODE is 'development' or 'production'
 const isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'development';
 
-// In development, use relative URLs (goes through Vite proxy)
+// In development, use absolute URLs to ensure cookies are sent to the correct domain
+// Cookies set on momoinbox.mooo.com during OAuth won't be accessible to localhost:5173
 // In production, use full URLs to the deployed services
 const COMPOSITE_MS_URL = import.meta.env.VITE_API_URL || 'https://momoinbox.mooo.com';
 
-export const API_BASE_URL = isDevelopment 
-  ? '' // Empty string = relative URLs, will use Vite proxy
-  : COMPOSITE_MS_URL;
+export const API_BASE_URL = COMPOSITE_MS_URL;
 
 // Debug logging (only in development)
 if (isDevelopment) {
   console.log('[API Config] Development mode detected');
   console.log('[API Config] API_BASE_URL:', API_BASE_URL);
-  console.log('[API Config] Using Vite proxy for API requests');
+  console.log('[API Config] Using absolute URLs (cookies must be sent to backend domain)');
 }
 
 // Temporary test user ID (from integrations-svc-ms2/utils/auth.py)
