@@ -3,11 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom'
 import '../styles/AccountInbox.css'
 import '../App.css'
 import { integrationsAPI } from '../services/api.js'
-import { TEST_USER_ID } from '../config/api.js'
+import { useAuth } from '../contexts/AuthContext.jsx'
 
 function AccountInbox() {
   const { accountId } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [selectedMessage, setSelectedMessage] = useState(null)
   const [chatInput, setChatInput] = useState('')
   const [isConnected, setIsConnected] = useState(false)
@@ -95,7 +96,7 @@ function AccountInbox() {
       
       // Check for network errors
       if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError') || error.message?.includes('ERR_CONNECTION_REFUSED')) {
-        errorMessage = `Cannot connect to API server. Please ensure the composite service is running on http://35.239.94.117:8000. Error: ${error.message}`
+        errorMessage = `Cannot connect to API server. Please ensure the composite service is running on https://momoinbox.mooo.com. Error: ${error.message}`
       } else {
         errorMessage = `Failed to load connections: ${error.message || 'Unknown error'}`
       }
@@ -237,10 +238,16 @@ function AccountInbox() {
       }
 
       // Create syncs for connections
+      if (!user || !user.id) {
+        setMessage({ type: 'error', text: 'User not authenticated' })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+        return
+      }
+
       const syncPromises = connectionsToSync.map(conn => 
         integrationsAPI.createSync({
           connection_id: conn.id,
-          user_id: TEST_USER_ID,
+          user_id: user.id,
           sync_type: 'incremental'
         }).catch(error => {
           console.error(`Failed to sync connection ${conn.id}:`, error)

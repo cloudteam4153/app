@@ -1,42 +1,38 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import '../styles/Settings.css'
-import { integrationsAPI, healthAPI } from '../services/api.js'
-import { TEST_USER_ID, API_BASE_URL } from '../config/api.js'
+import { integrationsAPI, healthAPI, authAPI } from '../services/api.js'
+import { API_BASE_URL } from '../config/api.js'
 
 function Settings() {
   const [connections, setConnections] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ type: '', text: '' })
   const navigate = useNavigate()
+  const location = useLocation()
 
-  // Fetch connections on mount
+  // Fetch connections on mount and handle callback messages
   useEffect(() => {
-    // Check for OAuth callback parameters in URL
-    const urlParams = new URLSearchParams(window.location.search)
-    const code = urlParams.get('code')
-    const state = urlParams.get('state')
-    const error = urlParams.get('error')
+    const params = new URLSearchParams(location.search)
+    const connected = params.get('connected')
+    const error = params.get('error')
     
-    if (error) {
-      setMessage({ type: 'error', text: `OAuth error: ${error}` })
+    if (connected === 'gmail') {
+      setMessage({ type: 'success', text: 'Gmail account connected successfully!' })
       setTimeout(() => setMessage({ type: '', text: '' }), 5000)
       // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname)
-    } else if (code) {
-      // OAuth callback - backend should handle this and set cookies
-      console.log('[Settings] OAuth callback detected, code:', code)
-      setMessage({ type: 'info', text: 'Completing OAuth authorization...' })
+      navigate('/settings', { replace: true })
+      // Reload connections
+      loadConnections()
+    } else if (error) {
+      setMessage({ type: 'error', text: `Connection error: ${decodeURIComponent(error)}` })
+      setTimeout(() => setMessage({ type: '', text: '' }), 8000)
       // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname)
-      // Reload connections after a short delay to allow backend to process
-      setTimeout(() => {
-        loadConnections()
-      }, 1000)
+      navigate('/settings', { replace: true })
     } else {
       loadConnections()
     }
-  }, [])
+  }, [location, navigate])
 
   const loadConnections = async () => {
     try {
@@ -57,24 +53,16 @@ function Settings() {
   const handleConnectGmail = async () => {
     setMessage({ type: '', text: '' })
     try {
-      // Create a new Gmail connection
-      // According to integrations service schema: requires user_id and provider
-      const connectionData = {
-        user_id: TEST_USER_ID,
-        provider: 'gmail'
-      }
+      console.log('[Settings] Attempting to connect Gmail account...');
+      const response = await authAPI.connectGmail()
+      console.log('[Settings] Gmail connection response:', response);
       
-      console.log('[Settings] Attempting to create Gmail connection with data:', connectionData);
-      const response = await integrationsAPI.createConnection(connectionData)
-      console.log('[Settings] Connection creation response:', response);
-      setMessage({ type: 'success', text: 'Gmail connection initiated! Please complete OAuth authorization.' })
-      
-      // Response is ConnectionInitiateResponse with auth_url field
-      if (response.auth_url) {
+      // Response contains auth_url to redirect user
+      if (response && response.auth_url) {
+        setMessage({ type: 'info', text: 'Redirecting to Gmail authorization...' })
         window.location.href = response.auth_url
       } else {
-        // Fallback: reload connections
-        await loadConnections()
+        throw new Error('No auth URL received from server')
       }
     } catch (error) {
       console.error('Failed to connect Gmail:', error)
@@ -82,13 +70,18 @@ function Settings() {
       // Provide user-friendly error messages
       let errorMessage = error.message || 'Failed to connect Gmail. Please try again.'
       
+      // Check for authentication errors
+      if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        errorMessage = 'Please log in to connect Gmail account.'
+      }
+      
       // Check for OAuth configuration errors
       if (errorMessage.includes('OAuth configuration error') || errorMessage.includes('client secrets file not found')) {
-        errorMessage = 'Gmail OAuth is not configured. Please set up Google OAuth credentials to enable Gmail integration. See OAUTH_SETUP.md for instructions.'
+        errorMessage = 'Gmail OAuth is not configured. Please set up Google OAuth credentials to enable Gmail integration.'
       }
       
       setMessage({ type: 'error', text: errorMessage })
-      setTimeout(() => setMessage({ type: '', text: '' }), 8000) // Show longer for setup instructions
+      setTimeout(() => setMessage({ type: '', text: '' }), 8000)
     }
   }
 
@@ -138,7 +131,7 @@ function Settings() {
 
   const handleTestAPIConnection = async () => {
     try {
-      setMessage({ type: 'info', text: 'Testing API connection to http://35.239.94.117:8000...' })
+      setMessage({ type: 'info', text: 'Testing API connection to https://momoinbox.mooo.com...' })
       
       const startTime = Date.now()
       const healthResponse = await healthAPI.check()
@@ -160,7 +153,7 @@ function Settings() {
       // Provide helpful error messages
       let userMessage = `API connection failed: ${errorMessage}`
       if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
-        userMessage = `Cannot connect to http://35.239.94.117:8000. Please check:\n1. The server is running\n2. Your network connection\n3. Firewall settings\n\nError: ${errorMessage}`
+        userMessage = `Cannot connect to https://momoinbox.mooo.com. Please check:\n1. The server is running\n2. Your network connection\n3. Firewall settings\n\nError: ${errorMessage}`
       }
       
       setMessage({ type: 'error', text: userMessage })
@@ -223,7 +216,7 @@ function Settings() {
             <div className="account-info">
               <h4>Backend API Server</h4>
               <p className="account-status" style={{ marginTop: '0.5rem' }}>
-                <code style={{ fontSize: '0.9em', color: '#666' }}>http://35.239.94.117:8000</code>
+                <code style={{ fontSize: '0.9em', color: '#666' }}>https://momoinbox.mooo.com</code>
               </p>
               <p className="account-meta" style={{ marginTop: '0.5rem', fontSize: '0.85em', color: '#888' }}>
                 Click "Test Connection" to verify the API server is reachable and healthy.

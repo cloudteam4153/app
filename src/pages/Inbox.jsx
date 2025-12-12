@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../styles/Inbox.css'
 import { integrationsAPI } from '../services/api.js'
-import { TEST_USER_ID } from '../config/api.js'
 
 function Inbox() {
   const [emails, setEmails] = useState([])
@@ -77,7 +76,7 @@ function Inbox() {
       if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('ERR_CONNECTION_REFUSED')) {
         setMessage({ 
           type: 'error', 
-          text: `Cannot connect to API server. Please ensure the composite service is running on http://35.239.94.117:8000. Error: ${errorMessage}` 
+          text: `Cannot connect to API server. Please ensure the composite service is running on https://momoinbox.mooo.com. Error: ${errorMessage}` 
         })
       } else {
         setMessage({ 

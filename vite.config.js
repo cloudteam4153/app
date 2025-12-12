@@ -6,7 +6,7 @@ function rewriteRedirectLocation(proxyRes, req) {
   if (proxyRes.headers.location) {
     const location = proxyRes.headers.location;
     // If redirect points to backend URL, rewrite to relative path
-    if (location.includes('35.239.94.117:8000')) {
+    if (location.includes('momoinbox.mooo.com') || location.includes('35.239.94.117:8000')) {
       // Extract the path from the full URL
       const url = new URL(location);
       const relativePath = url.pathname + url.search + url.hash;
@@ -24,9 +24,9 @@ export default defineConfig({
       // Proxy all API requests to the composite microservice
       // This avoids CORS issues in development
       '/api': {
-        target: 'http://35.239.94.117:8000',
+        target: 'https://momoinbox.mooo.com',
         changeOrigin: true,
-        secure: false,
+        secure: true,
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
             console.log('proxy error', err);
@@ -60,9 +60,51 @@ export default defineConfig({
       },
       // Proxy root health check endpoint
       '/health': {
-        target: 'http://35.239.94.117:8000',
+        target: 'https://momoinbox.mooo.com',
         changeOrigin: true,
-        secure: false,
+        secure: true,
+        configure: (proxy, _options) => {
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log('Proxying request:', req.method, req.url, '->', proxyReq.path);
+          });
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            rewriteRedirectLocation(proxyRes, req);
+          });
+        },
+      },
+      // Proxy auth endpoints
+      '/auth': {
+        target: 'https://momoinbox.mooo.com',
+        changeOrigin: true,
+        secure: true,
+        configure: (proxy, _options) => {
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log('Proxying request:', req.method, req.url, '->', proxyReq.path);
+          });
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            rewriteRedirectLocation(proxyRes, req);
+          });
+        },
+      },
+      // Proxy external endpoints
+      '/external': {
+        target: 'https://momoinbox.mooo.com',
+        changeOrigin: true,
+        secure: true,
+        configure: (proxy, _options) => {
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log('Proxying request:', req.method, req.url, '->', proxyReq.path);
+          });
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            rewriteRedirectLocation(proxyRes, req);
+          });
+        },
+      },
+      // Proxy OAuth callback endpoints
+      '/oauth': {
+        target: 'https://momoinbox.mooo.com',
+        changeOrigin: true,
+        secure: true,
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {
             console.log('Proxying request:', req.method, req.url, '->', proxyReq.path);

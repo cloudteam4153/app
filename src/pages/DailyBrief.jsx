@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../App.css'
 import { integrationsAPI, actionsAPI, classificationAPI } from '../services/api.js'
-import { TEST_USER_ID, TEST_USER_ID_INT } from '../config/api.js'
+import { useAuth } from '../contexts/AuthContext.jsx'
 
 function DailyBrief() {
+  const { user } = useAuth()
   const [expandedSections, setExpandedSections] = useState({
     overdue: true,
     todo: true,
@@ -112,11 +113,17 @@ function DailyBrief() {
         return
       }
 
+      if (!user || !user.id) {
+        setMessage({ type: 'error', text: 'User not authenticated' })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+        return
+      }
+
       // Create syncs for all connections
       const syncPromises = connections.map(connectionId => 
         integrationsAPI.createSync({
           connection_id: connectionId,
-          user_id: TEST_USER_ID,
+          user_id: user.id,
           sync_type: 'incremental'
         }).catch(error => {
           console.error(`Failed to sync connection ${connectionId}:`, error)
@@ -142,9 +149,15 @@ function DailyBrief() {
   const loadTasks = async () => {
     try {
       setTasksLoading(true)
+      // Note: actionsAPI uses integer user_id, but we have UUID from auth
+      // This may need backend adjustment, for now we'll skip if no user
+      if (!user || !user.id) {
+        setTasksLoading(false)
+        return
+      }
       // Fetch all open tasks for the user
+      // Note: This may need adjustment if actions service expects different user_id format
       const response = await actionsAPI.listTasks({
-        user_id: TEST_USER_ID_INT,
         status: 'open'
       })
       
@@ -194,9 +207,13 @@ function DailyBrief() {
   const loadTodayBrief = async () => {
     try {
       setBriefLoading(true)
+      if (!user || !user.id) {
+        setBriefLoading(false)
+        return
+      }
       const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
       const response = await classificationAPI.listBriefs({
-        user_id: TEST_USER_ID,
+        user_id: user.id,
         brief_date: today
       })
       
@@ -219,9 +236,16 @@ function DailyBrief() {
       setBriefLoading(true)
       setMessage({ type: 'info', text: 'Generating daily brief...' })
       
+      if (!user || !user.id) {
+        setMessage({ type: 'error', text: 'User not authenticated' })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+        setBriefLoading(false)
+        return
+      }
+
       const today = new Date().toISOString().split('T')[0]
       const newBrief = await classificationAPI.createBrief({
-        user_id: TEST_USER_ID,
+        user_id: user.id,
         date: today,
         max_items: 50
       })
@@ -294,10 +318,16 @@ function DailyBrief() {
 
       setMessage({ type: 'info', text: 'Generating tasks from classifications...' })
       
+      if (!user || !user.id) {
+        setMessage({ type: 'error', text: 'User not authenticated' })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+        return
+      }
+
       const classificationIds = classifications.map(c => c.cls_id || c.id)
       const response = await classificationAPI.generateTasks({
         classification_ids: classificationIds,
-        user_id: TEST_USER_ID
+        user_id: user.id
       })
       
       setMessage({ type: 'success', text: `Generated ${response.total_generated || 0} tasks successfully!` })

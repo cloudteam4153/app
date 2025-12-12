@@ -18,12 +18,11 @@ const isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'developme
 
 // In development, use relative URLs (goes through Vite proxy)
 // In production, use full URLs to the deployed services
-const COMPOSITE_MS_IP = import.meta.env.VITE_API_HOST || '35.239.94.117';
-const COMPOSITE_MS_PORT = import.meta.env.VITE_API_PORT || '8000';
+const COMPOSITE_MS_URL = import.meta.env.VITE_API_URL || 'https://momoinbox.mooo.com';
 
 export const API_BASE_URL = isDevelopment 
   ? '' // Empty string = relative URLs, will use Vite proxy
-  : `http://${COMPOSITE_MS_IP}:${COMPOSITE_MS_PORT}`;
+  : COMPOSITE_MS_URL;
 
 // Debug logging (only in development)
 if (isDevelopment) {
@@ -75,6 +74,18 @@ export const API_PATHS = {
   
   // Composite dashboard
   DASHBOARD: '/api/composite/dashboard',
+  
+  // Authentication endpoints
+  AUTH: {
+    LOGIN_GOOGLE: '/auth/login/google',
+    REFRESH: '/auth/refresh',
+    ME: '/auth/me',
+  },
+  
+  // External account connection endpoints
+  EXTERNAL: {
+    GMAIL: '/external/gmail',
+  },
 };
 
 

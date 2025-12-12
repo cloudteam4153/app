@@ -14,30 +14,11 @@ import { API_BASE_URL, API_PATHS } from '../config/api.js';
  * @param {Object} options - Fetch options (method, body, headers, etc.)
  * @returns {Promise<Object>} Response data
  */
-/**
- * Get stored refresh token from localStorage or cookies
- * @returns {string|null} Refresh token if available
- */
-function getRefreshToken() {
-  // Try localStorage first
-  const token = localStorage.getItem('refresh_token');
-  if (token) {
-    return token;
-  }
-  
-  // Try to get from cookies
-  const cookies = document.cookie.split(';');
-  for (let cookie of cookies) {
-    const [name, value] = cookie.trim().split('=');
-    if (name === 'refresh_token' || name === 'refreshToken') {
-      return decodeURIComponent(value);
-    }
-  }
-  
-  return null;
-}
+// Track if we're currently refreshing to prevent infinite loops
+let isRefreshing = false;
+let refreshPromise = null;
 
-async function apiRequest(endpoint, options = {}) {
+async function apiRequest(endpoint, options = {}, retryOn401 = true) {
   const url = `${API_BASE_URL}${endpoint}`;
   
   // Enhanced debugging
@@ -48,20 +29,12 @@ async function apiRequest(endpoint, options = {}) {
   console.log('[API Debug] Is relative URL?', url.startsWith('http') ? 'NO (absolute)' : 'YES (relative - will use proxy)');
   console.log('[API Debug] ==========================================');
   
-  // Get refresh token if available
-  const refreshToken = getRefreshToken();
-  
   const defaultOptions = {
     headers: {
       'Content-Type': 'application/json',
     },
     credentials: 'include', // Include cookies in requests (important for authentication)
   };
-  
-  // Add Authorization header if refresh token is available
-  if (refreshToken) {
-    defaultOptions.headers['Authorization'] = `Bearer ${refreshToken}`;
-  }
   
   const config = {
     ...defaultOptions,
@@ -76,9 +49,6 @@ async function apiRequest(endpoint, options = {}) {
   
   try {
     console.log(`[API] Making ${config.method || 'GET'} request to: ${url}`, config.body ? { body: JSON.parse(config.body) } : '');
-    if (refreshToken) {
-      console.log('[API] Using refresh token for authentication');
-    }
     
     // fetch() automatically follows redirects (307, 308) by default
     // We don't need to handle them manually
@@ -87,13 +57,41 @@ async function apiRequest(endpoint, options = {}) {
     console.log(`[API] Response status: ${response.status} ${response.statusText}`);
     
     if (!response.ok) {
-      // Check for authentication errors
-      if (response.status === 401) {
-        // Check if backend set any cookies during the response
-        const setCookieHeader = response.headers.get('Set-Cookie');
-        if (setCookieHeader) {
-          console.log('[API] Backend set cookies:', setCookieHeader);
-          // Cookies are automatically handled by the browser when credentials: 'include' is set
+      // Handle 401 Unauthorized - try to refresh token
+      if (response.status === 401 && retryOn401 && endpoint !== API_PATHS.AUTH.REFRESH) {
+        console.log('[API] Received 401, attempting to refresh token...');
+        
+        // If we're already refreshing, wait for that to complete
+        if (isRefreshing && refreshPromise) {
+          console.log('[API] Already refreshing, waiting for refresh to complete...');
+          await refreshPromise;
+          // Retry the original request after refresh
+          return apiRequest(endpoint, options, false); // Don't retry again if this fails
+        }
+        
+        // Start refresh process
+        isRefreshing = true;
+        refreshPromise = (async () => {
+          try {
+            await authAPI.refreshToken();
+            console.log('[API] Token refresh successful');
+          } catch (refreshError) {
+            console.error('[API] Token refresh failed:', refreshError);
+            throw refreshError;
+          } finally {
+            isRefreshing = false;
+            refreshPromise = null;
+          }
+        })();
+        
+        try {
+          await refreshPromise;
+          // Retry the original request after successful refresh
+          console.log('[API] Retrying original request after token refresh...');
+          return apiRequest(endpoint, options, false); // Don't retry again if this fails
+        } catch (refreshError) {
+          // Refresh failed, throw the original 401 error
+          console.error('[API] Token refresh failed, cannot retry request');
         }
       }
       
@@ -121,7 +119,7 @@ async function apiRequest(endpoint, options = {}) {
       // Provide more helpful error messages for authentication errors
       if (response.status === 401) {
         if (errorMessage.includes('refresh token') || errorMessage.includes('Missing refresh token')) {
-          errorMessage = 'Authentication required. Please ensure you are logged in or complete the OAuth flow to connect your account.';
+          errorMessage = 'Authentication required. Please log in to continue.';
         }
       }
       
@@ -146,6 +144,47 @@ async function apiRequest(endpoint, options = {}) {
     throw error;
   }
 }
+
+/**
+ * Authentication API
+ */
+export const authAPI = {
+  /**
+   * Refresh access and refresh tokens
+   * @returns {Promise<Object>} Refresh result with status
+   */
+  refreshToken: () => apiRequest(API_PATHS.AUTH.REFRESH, {
+    method: 'POST',
+  }, false), // Don't retry refresh on 401 to avoid infinite loop
+  
+  /**
+   * Get current user information
+   * @returns {Promise<Object>} User data with user_id
+   */
+  getCurrentUser: () => apiRequest(API_PATHS.AUTH.ME),
+  
+  /**
+   * Initiate Google OAuth login
+   * @param {string} redirectUrl - Optional frontend URL to redirect to after OAuth
+   * @returns {Promise<Object>} OAuth redirect URL with auth_url
+   */
+  loginWithGoogle: (redirectUrl) => {
+    const url = redirectUrl 
+      ? `${API_PATHS.AUTH.LOGIN_GOOGLE}?redirect=${encodeURIComponent(redirectUrl)}`
+      : API_PATHS.AUTH.LOGIN_GOOGLE
+    return apiRequest(url, {
+      method: 'POST',
+    })
+  },
+  
+  /**
+   * Connect Gmail account (requires authentication)
+   * @returns {Promise<Object>} OAuth redirect URL with auth_url
+   */
+  connectGmail: () => apiRequest(API_PATHS.EXTERNAL.GMAIL, {
+    method: 'POST',
+  }),
+};
 
 /**
  * Health Check API
