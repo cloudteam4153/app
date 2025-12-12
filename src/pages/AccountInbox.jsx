@@ -16,6 +16,7 @@ function AccountInbox() {
   const [connectedAccounts, setConnectedAccounts] = useState([
     { id: 'all', name: 'All Accounts', type: 'all', icon: '📋' }
   ])
+  const [connectedEmails, setConnectedEmails] = useState([])
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
   const [currentConnection, setCurrentConnection] = useState(null)
@@ -68,7 +69,18 @@ function AccountInbox() {
         is_active: true,
         limit: 100 
       })
-      const connections = Array.isArray(response) ? response : (response.items || [])
+      
+      // Backend returns paginated response with {data: [...], page, size, ...}
+      // or direct array, handle both cases
+      const connections = Array.isArray(response) 
+        ? response 
+        : (response?.data && Array.isArray(response.data) ? response.data : [])
+      
+      // Extract email addresses from connections
+      const emails = connections
+        .filter(conn => conn.provider_account_id)
+        .map(conn => conn.provider_account_id)
+      setConnectedEmails(emails)
       
       const accounts = [
         { id: 'all', name: 'All Accounts', type: 'all', icon: '📋' },
@@ -106,6 +118,10 @@ function AccountInbox() {
         text: errorMessage
       })
       setTimeout(() => setMessage({ type: '', text: '' }), 8000)
+      // Set empty state on error
+      setConnectedEmails([])
+      setConnectedAccounts([{ id: 'all', name: 'All Accounts', type: 'all', icon: '📋' }])
+      setIsConnected(false)
     }
   }
 
@@ -373,23 +389,38 @@ function AccountInbox() {
       <div className="brief-layout">
         <aside className="brief-sidebar">
           <div className="sidebar-accounts">
-            {connectedAccounts.map(account => (
-              <button
-                key={account.id}
-                className={`account-item ${accountId === account.id ? 'active' : ''}`}
-                onClick={() => {
-                  if (account.id === 'all') {
-                    navigate('/')
-                  } else {
-                    navigate(`/account/${account.id}`)
-                  }
-                }}
-                title={account.name}
-              >
-                <span className="account-icon">{account.icon}</span>
-                <span className="account-name">{account.name}</span>
-              </button>
-            ))}
+            {connectedAccounts.map(account => {
+              const shouldShowEmail = account.id === 'all' && connectedEmails.length > 0
+              return (
+                <button
+                  key={account.id}
+                  className={`account-item ${accountId === account.id ? 'active' : ''}`}
+                  onClick={() => {
+                    if (account.id === 'all') {
+                      navigate('/')
+                    } else {
+                      navigate(`/account/${account.id}`)
+                    }
+                  }}
+                  title={account.name}
+                >
+                  <span className="account-icon">{account.icon}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', flex: 1 }}>
+                    <span className="account-name">{account.name}</span>
+                    {shouldShowEmail && (
+                      <span style={{ 
+                        fontSize: '0.75rem', 
+                        color: '#666', 
+                        marginTop: '2px',
+                        fontWeight: 'normal'
+                      }}>
+                        {connectedEmails.join(', ')}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
             <button className="account-item add-account-btn" onClick={handleAddAccount}>
               <span className="account-icon">+</span>
               <span className="account-name">Add Account</span>

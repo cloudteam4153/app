@@ -7,7 +7,6 @@ import { useAuth } from '../contexts/AuthContext.jsx'
 function DailyBrief() {
   const { user, isAuthenticated } = useAuth()
   const [expandedSections, setExpandedSections] = useState({
-    overdue: true,
     todo: true,
     followup: true
   })
@@ -210,13 +209,6 @@ function DailyBrief() {
 
   // Categorize tasks into sections
   const now = new Date()
-  const overdueTasks = tasks.filter(task => {
-    if (task.status !== 'open') return false
-    if (!task.due_at) return false
-    const dueDate = new Date(task.due_at)
-    return dueDate < now
-  })
-
   const todoTasks = tasks.filter(task => {
     if (task.status !== 'open') return false
     if (!task.due_at) return true // No due date = todo
@@ -568,50 +560,6 @@ function DailyBrief() {
               </div>
             </div>
           )}
-
-          {/* Overdue Section */}
-          <div className="task-section task-section-overdue">
-            <div className="section-header" onClick={() => toggleSection('overdue')}>
-              <span className="chevron">{expandedSections.overdue ? '▼' : '▶'}</span>
-              <h3 className="section-title">Overdue ({overdueTasks.length})</h3>
-            </div>
-            {expandedSections.overdue && (
-              <div className="section-content">
-                {tasksLoading ? (
-                  <div className="loading-state">Loading tasks...</div>
-                ) : overdueTasks.length === 0 ? (
-                  <div className="empty-state">No overdue tasks</div>
-                ) : (
-                  overdueTasks.map(task => (
-                    <div key={task.task_id} className="task-item">
-                      <input
-                        type="checkbox"
-                        className="task-checkbox"
-                        checked={task.status === 'done'}
-                        onChange={() => handleTaskStatusToggle(task.task_id, task.status)}
-                      />
-                      <div className="task-content">
-                        <div className="task-text">{task.title}</div>
-                        <div className="task-meta">
-                          {task.due_at && (
-                            <span className="task-due">
-                              Due: {new Date(task.due_at).toLocaleDateString()}
-                            </span>
-                          )}
-                          {task.priority && (
-                            <span className="task-priority">Priority: {task.priority}</span>
-                          )}
-                          {task.sender && (
-                            <span className="task-sender">From: {task.sender}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
 
           {/* To do Section */}
           <div className="task-section task-section-todo">
