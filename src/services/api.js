@@ -602,6 +602,7 @@ export const classificationAPI = {
    */
   listClassifications: (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
+    // Composite Swagger uses trailing slash: /classification/
     return apiRequest(`${API_PATHS.CLASSIFICATION.CLASSIFICATIONS}/${queryString ? `?${queryString}` : ''}`);
   },
   
@@ -615,8 +616,8 @@ export const classificationAPI = {
   
   /**
    * Classify messages
-   * @param {Object} classificationRequest - Classification request data with message_ids array
-   * @returns {Promise<Object>} ClassificationResponse with classifications array, total_processed, success_count, error_count
+   * Backend contract (ms4-classification-main): { user_id: string }
+   * Composite Swagger response is a JSON string (not a typed object)
    */
   classifyMessages: (classificationRequest) =>
     apiRequest(`${API_PATHS.CLASSIFICATION.CLASSIFICATIONS}/`, {

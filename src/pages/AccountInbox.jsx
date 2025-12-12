@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import '../styles/AccountInbox.css'
 import '../App.css'
-import { integrationsAPI } from '../services/api.js'
+import { integrationsAPI, classificationAPI } from '../services/api.js'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
 function AccountInbox() {
@@ -18,6 +18,8 @@ function AccountInbox() {
   ])
   const [connectedEmails, setConnectedEmails] = useState([])
   const [messages, setMessages] = useState([])
+  const [classifications, setClassifications] = useState([])
+  const [classificationByMsgId, setClassificationByMsgId] = useState({})
   const [loading, setLoading] = useState(true)
   const [currentConnection, setCurrentConnection] = useState(null)
   const [activeTab, setActiveTab] = useState('inbox')
@@ -34,6 +36,22 @@ function AccountInbox() {
       loadAllMessages()
     }
   }, [accountId])
+
+  // Load classifications once we know who the user is
+  useEffect(() => {
+    if (user?.id) {
+      loadClassificationsForUser(user.id)
+    }
+  }, [user?.id])
+
+  // Log messages state whenever it changes
+  useEffect(() => {
+    console.log('[AccountInbox] Messages state updated:', {
+      count: messages.length,
+      messages: messages,
+      accountId: accountId
+    })
+  }, [messages, accountId])
 
   // Helper function to determine unread status from API response
   const determineUnreadStatus = (msg) => {
@@ -61,6 +79,28 @@ function AccountInbox() {
     
     // Default to unread if no field found (assume unread by default)
     return true
+  }
+
+  const buildClassificationMap = (list) => {
+    const next = {}
+    if (Array.isArray(list)) {
+      for (const c of list) {
+        if (c?.msg_id && c?.label) next[String(c.msg_id)] = c.label
+      }
+    }
+    return next
+  }
+
+  const loadClassificationsForUser = async (userId) => {
+    if (!userId) return
+    try {
+      const res = await classificationAPI.listClassifications({ user_id: userId, limit: 1000 })
+      const list = Array.isArray(res) ? res : []
+      setClassifications(list)
+      setClassificationByMsgId(buildClassificationMap(list))
+    } catch (e) {
+      console.warn('[AccountInbox] Failed to load classifications:', e?.message || e)
+    }
   }
 
   const loadConnections = async () => {
@@ -308,6 +348,90 @@ function AccountInbox() {
     navigate('/settings')
   }
 
+  const handleClassifyMessages = async () => {
+    try {
+      setMessage({ type: 'info', text: 'Classifying messages...' })
+      
+      if (messages.length === 0) {
+        setMessage({ type: 'error', text: 'No messages found to classify' })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+        return
+      }
+
+      // Check if user is authenticated
+      if (!user || !user.id) {
+        setMessage({ type: 'error', text: 'User not authenticated' })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+        return
+      }
+
+      // Classify messages
+      const classificationResponse = await classificationAPI.classifyMessages({
+        user_id: user.id // Required by Classification Service
+      })
+
+      // Composite currently returns an array of classification objects
+      if (Array.isArray(classificationResponse)) {
+        setClassifications(classificationResponse)
+        setClassificationByMsgId(buildClassificationMap(classificationResponse))
+        setMessage({
+          type: 'success',
+          text: `Classified ${classificationResponse.length} message(s).`
+        })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+        return
+      }
+
+      // Composite Swagger shows 200 response as a JSON string.
+      // Handle both string and object responses defensively.
+      if (typeof classificationResponse === 'string') {
+        const text = classificationResponse.trim()
+        setMessage({
+          type: 'success',
+          text: text.length > 0 ? text : 'Classification completed.'
+        })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+        // Follow up by refreshing classifications so tabs can filter
+        loadClassificationsForUser(user.id)
+        return
+      }
+
+      const successCount = classificationResponse?.success_count || 0
+
+      if (successCount === 0) {
+        // Backend behavior: classifies only NEW (not-yet-classified) messages for the user
+        let existingCount = 0
+        try {
+          const existing = await classificationAPI.listClassifications({
+            user_id: user.id,
+            limit: 100
+          })
+          existingCount = Array.isArray(existing) ? existing.length : 0
+        } catch (e) {
+          // ignore secondary error; show generic message below
+          console.warn('[AccountInbox] Failed to fetch existing classifications:', e?.message || e)
+        }
+
+        setMessage({
+          type: 'info',
+          text: existingCount > 0
+            ? `No new messages to classify (already classified: ${existingCount}).`
+            : 'No new messages to classify.'
+        })
+      } else {
+        setMessage({ type: 'success', text: `Classified ${successCount} message(s) successfully!` })
+      }
+
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+      // Refresh classifications after classify so tabs can filter
+      loadClassificationsForUser(user.id)
+    } catch (error) {
+      console.error('Failed to classify messages:', error)
+      setMessage({ type: 'error', text: error.message || 'Failed to classify messages' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000)
+    }
+  }
+
   const handleMessageClick = async (message) => {
     setSelectedMessage(message)
     
@@ -360,10 +484,18 @@ function AccountInbox() {
     ? 'All Accounts' 
     : `Account ${accountId}`
 
+  const getMessageLabel = (msg) => {
+    const key = msg?.id ? String(msg.id) : ''
+    return key ? classificationByMsgId[key] : undefined
+  }
+
   // Filter messages based on active tab
-  const filteredMessages = activeTab === 'unread' 
-    ? messages.filter(m => m.unread)
-    : messages
+  const filteredMessages = (() => {
+    if (activeTab === 'todo') return messages.filter(m => getMessageLabel(m) === 'todo')
+    if (activeTab === 'followup') return messages.filter(m => getMessageLabel(m) === 'followup')
+    if (activeTab === 'spam') return messages.filter(m => getMessageLabel(m) === 'noise')
+    return messages
+  })()
 
   return (
     <div className="app">
@@ -377,7 +509,10 @@ function AccountInbox() {
             {isConnected ? 'Connected' : 'Connect Email/Slack'}
           </button>
           <button className="nav-button" onClick={handleFetchNewEmails}>
-            Fetch New Emails
+            Sync
+          </button>
+          <button className="nav-button" onClick={handleClassifyMessages}>
+            Classify
           </button>
         </div>
       </header>
@@ -443,13 +578,7 @@ function AccountInbox() {
               className={`tab ${activeTab === 'inbox' ? 'active' : ''}`}
               onClick={() => setActiveTab('inbox')}
             >
-              Inbox
-            </button>
-            <button 
-              className={`tab ${activeTab === 'unread' ? 'active' : ''}`}
-              onClick={() => setActiveTab('unread')}
-            >
-              Unread
+              All
             </button>
             <button 
               className={`tab ${activeTab === 'todo' ? 'active' : ''}`}
@@ -458,10 +587,16 @@ function AccountInbox() {
               Todo
             </button>
             <button 
-              className={`tab ${activeTab === 'follow-up' ? 'active' : ''}`}
-              onClick={() => setActiveTab('follow-up')}
+              className={`tab ${activeTab === 'followup' ? 'active' : ''}`}
+              onClick={() => setActiveTab('followup')}
             >
-              Follow-up
+              Followup
+            </button>
+            <button 
+              className={`tab ${activeTab === 'spam' ? 'active' : ''}`}
+              onClick={() => setActiveTab('spam')}
+            >
+              Spam
             </button>
           </div>
           <div className="inbox-search">

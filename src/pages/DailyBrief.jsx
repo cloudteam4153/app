@@ -8,7 +8,8 @@ function DailyBrief() {
   const { user, isAuthenticated } = useAuth()
   const [expandedSections, setExpandedSections] = useState({
     todo: true,
-    followup: true
+    followup: true,
+    classifications: true
   })
   const [isConnected, setIsConnected] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
@@ -171,11 +172,14 @@ function DailyBrief() {
   const loadTasks = async () => {
     try {
       setTasksLoading(true)
-      // Note: actionsAPI requires integer user_id, but we have UUID from auth
-      // The backend expects user_id as a required parameter
-      // For now, we'll try without user_id filter and let backend handle it
-      // TODO: Map UUID user_id to integer user_id if needed
+      // Check if user is authenticated before making the request
+      if (!user || !user.id) {
+        console.warn('User not authenticated, cannot load tasks')
+        setTasks([])
+        return
+      }
       const response = await actionsAPI.listTasks({
+        user_id: user.id,  // Required parameter
         status: 'open'
       })
       
@@ -304,26 +308,51 @@ function DailyBrief() {
         return
       }
 
-      // Get message IDs (need to map from integrations messages to classification messages)
-      // Note: This is a simplified approach - in reality, you'd need to sync messages first
-      // For now, we'll use the message IDs directly if they're UUIDs
-      const messageIds = messagesList
-        .map(msg => msg.id)
-        .filter(id => id) // Filter out any invalid IDs
-      
-      if (messageIds.length === 0) {
-        setMessage({ type: 'error', text: 'No valid message IDs found' })
+      // Check if user is authenticated
+      if (!user || !user.id) {
+        setMessage({ type: 'error', text: 'User not authenticated' })
         setTimeout(() => setMessage({ type: '', text: '' }), 3000)
         return
       }
 
       // Classify messages
       const classificationResponse = await classificationAPI.classifyMessages({
-        message_ids: messageIds.slice(0, 50) // Limit to 50 messages
+        user_id: user.id // Required by Classification Service
       })
       
-      setClassifications(classificationResponse.classifications || [])
-      setMessage({ type: 'success', text: `Classified ${classificationResponse.success_count || 0} messages successfully!` })
+      // Composite Swagger shows 200 response as a JSON string.
+      // Handle both string and object responses defensively.
+      if (typeof classificationResponse === 'string') {
+        const text = classificationResponse.trim()
+        setMessage({
+          type: 'success',
+          text: text.length > 0 ? text : 'Classification completed.'
+        })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+        return
+      }
+
+      const successCount = classificationResponse?.success_count || 0
+
+      if (successCount === 0) {
+        // Backend behavior: classifies only NEW (not-yet-classified) messages for the user
+        const existing = await classificationAPI.listClassifications({
+          user_id: user.id,
+          limit: 100
+        })
+        const existingList = Array.isArray(existing) ? existing : []
+
+        setClassifications(existingList)
+        setMessage({
+          type: 'info',
+          text: existingList.length > 0
+            ? `No new messages to classify (already classified: ${existingList.length}).`
+            : 'No new messages to classify.'
+        })
+      } else {
+        setClassifications(classificationResponse.classifications || [])
+        setMessage({ type: 'success', text: `Classified ${successCount} message(s) successfully!` })
+      }
       setTimeout(() => setMessage({ type: '', text: '' }), 3000)
     } catch (error) {
       console.error('Failed to classify messages:', error)
@@ -399,7 +428,7 @@ function DailyBrief() {
             {isConnected ? 'Connected' : 'Connect Email/Slack'}
           </button>
           <button className="nav-button" onClick={handleFetchNewEmails}>
-            Fetch New Emails
+            Sync
           </button>
           <button className="nav-button" onClick={handleClassifyMessages}>
             Classify Messages
@@ -548,15 +577,6 @@ function DailyBrief() {
                     </div>
                   </div>
                 ))}
-                {classifications.length > 0 && (
-                  <button 
-                    className="btn-generate-tasks" 
-                    onClick={handleGenerateTasksFromClassifications}
-                    style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}
-                  >
-                    Generate Tasks from Classifications
-                  </button>
-                )}
               </div>
             </div>
           )}
@@ -604,6 +624,69 @@ function DailyBrief() {
               </div>
             )}
           </div>
+
+          {/* Classified Messages Section */}
+          {classifications.length > 0 && (
+            <div className="task-section task-section-classifications">
+              <div className="section-header" onClick={() => toggleSection('classifications')}>
+                <span className="chevron">{expandedSections.classifications ? '▼' : '▶'}</span>
+                <h3 className="section-title">Classified Messages ({classifications.length})</h3>
+              </div>
+              {expandedSections.classifications && (
+                <div className="section-content">
+                  {classifications.map((classification, index) => (
+                    <div key={classification.cls_id || classification.id || index} className="brief-item">
+                      <div className="brief-item-header">
+                        <span className="brief-item-priority" style={{ 
+                          color: (classification.priority_score || classification.priority || 0) >= 7 ? '#d32f2f' : '#1976d2' 
+                        }}>
+                          Priority: {classification.priority_score || classification.priority || 'N/A'}
+                        </span>
+                        {classification.label && (
+                          <span className="brief-item-label" style={{
+                            backgroundColor: classification.label.toLowerCase().includes('todo') ? '#e3f2fd' :
+                                             classification.label.toLowerCase().includes('followup') ? '#fff3e0' : '#f5f5f5',
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '4px',
+                            fontSize: '0.85rem'
+                          }}>
+                            {classification.label}
+                          </span>
+                        )}
+                      </div>
+                      {classification.title && (
+                        <div className="brief-item-title">{classification.title}</div>
+                      )}
+                      {classification.description && (
+                        <div className="brief-item-description">{classification.description}</div>
+                      )}
+                      {classification.summary && (
+                        <div className="brief-item-description">{classification.summary}</div>
+                      )}
+                      <div className="brief-item-meta">
+                        {classification.sender && (
+                          <span>From: {classification.sender}</span>
+                        )}
+                        {classification.channel && (
+                          <span>Channel: {classification.channel}</span>
+                        )}
+                        {classification.message_id && (
+                          <span>Message ID: {classification.message_id.substring(0, 8)}...</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  <button 
+                    className="btn-generate-tasks" 
+                    onClick={handleGenerateTasksFromClassifications}
+                    style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}
+                  >
+                    Generate Tasks from Classifications
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Follow-up Section */}
           <div className="task-section task-section-followup">

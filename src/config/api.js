@@ -67,6 +67,7 @@ export const API_PATHS = {
   CLASSIFICATION: {
     BASE: '/classification',
     MESSAGES: '/messages', // Shared with integrations
+    // Composite Swagger exposes classification at /classification/
     CLASSIFICATIONS: '/classification',
     BRIEFS: '/briefs',
     TASKS: '/classification/tasks', // May not exist, keeping for backward compatibility
