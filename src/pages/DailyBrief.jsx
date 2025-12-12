@@ -40,23 +40,10 @@ function DailyBrief() {
 
   // Load connections and tasks on mount
   useEffect(() => {
-    console.log('[DailyBrief] Component mounted, loading connections, tasks, and brief')
     loadConnections()
     loadTasks()
     loadTodayBrief()
   }, [])
-
-  // Debug: Log when connectedEmails changes
-  useEffect(() => {
-    console.log('[DailyBrief] connectedEmails state changed:', connectedEmails)
-    console.log('[DailyBrief] connectedEmails length:', connectedEmails.length)
-  }, [connectedEmails])
-
-  // Debug: Log when connectedAccounts changes
-  useEffect(() => {
-    console.log('[DailyBrief] connectedAccounts state changed:', connectedAccounts)
-    console.log('[DailyBrief] connectedAccounts length:', connectedAccounts.length)
-  }, [connectedAccounts])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -77,41 +64,23 @@ function DailyBrief() {
 
   const loadConnections = async () => {
     try {
-      console.log('[DailyBrief] Loading connections...')
       setLoading(true)
       const response = await integrationsAPI.listConnections({ 
         is_active: true,
         limit: 100 
       })
-      console.log('[DailyBrief] Connections API response:', response)
-      console.log('[DailyBrief] Response type:', typeof response)
-      console.log('[DailyBrief] Is array?', Array.isArray(response))
       
-      // Integrations service returns List[ConnectionRead] directly (array)
-      const connections = Array.isArray(response) ? response : []
-      console.log('[DailyBrief] Parsed connections:', connections)
-      console.log('[DailyBrief] Number of connections:', connections.length)
-      
-      // Log each connection's structure
-      connections.forEach((conn, index) => {
-        console.log(`[DailyBrief] Connection ${index}:`, {
-          id: conn.id,
-          provider: conn.provider,
-          provider_account_id: conn.provider_account_id,
-          status: conn.status,
-          is_active: conn.is_active,
-          full_object: conn
-        })
-      })
+      // Backend returns paginated response with {data: [...], page, size, ...}
+      // or direct array, handle both cases
+      const connections = Array.isArray(response) 
+        ? response 
+        : (response?.data && Array.isArray(response.data) ? response.data : [])
       
       // Extract email addresses from connections
       const emails = connections
         .filter(conn => conn.provider_account_id)
         .map(conn => conn.provider_account_id)
-      console.log('[DailyBrief] Extracted emails:', emails)
-      console.log('[DailyBrief] Number of emails found:', emails.length)
       setConnectedEmails(emails)
-      console.log('[DailyBrief] Set connectedEmails state to:', emails)
       
       const accounts = [
         { id: 'all', name: 'All Accounts', type: 'all', icon: '📋' },
@@ -123,23 +92,16 @@ function DailyBrief() {
                 conn.provider?.toLowerCase() === 'slack' ? '💬' : '📋'
         }))
       ]
-      console.log('[DailyBrief] Created accounts array:', accounts)
       setConnectedAccounts(accounts)
       setIsConnected(connections.length > 0)
-      console.log('[DailyBrief] Connection loading complete. isConnected:', connections.length > 0)
     } catch (error) {
-      console.error('[DailyBrief] Failed to load connections:', error)
-      console.error('[DailyBrief] Error details:', {
-        message: error.message,
-        stack: error.stack,
-        response: error.response
-      })
+      console.error('Failed to load connections:', error)
       // Don't show error on initial load, just set empty state
       setConnectedEmails([])
-      console.log('[DailyBrief] Set connectedEmails to empty array due to error')
+      setConnectedAccounts([{ id: 'all', name: 'All Accounts', type: 'all', icon: '📋' }])
+      setIsConnected(false)
     } finally {
       setLoading(false)
-      console.log('[DailyBrief] loadConnections finished, loading set to false')
     }
   }
 
@@ -210,14 +172,10 @@ function DailyBrief() {
   const loadTasks = async () => {
     try {
       setTasksLoading(true)
-      // Note: actionsAPI uses integer user_id, but we have UUID from auth
-      // This may need backend adjustment, for now we'll skip if no user
-      if (!user || !user.id) {
-        setTasksLoading(false)
-        return
-      }
-      // Fetch all open tasks for the user
-      // Note: This may need adjustment if actions service expects different user_id format
+      // Note: actionsAPI requires integer user_id, but we have UUID from auth
+      // The backend expects user_id as a required parameter
+      // For now, we'll try without user_id filter and let backend handle it
+      // TODO: Map UUID user_id to integer user_id if needed
       const response = await actionsAPI.listTasks({
         status: 'open'
       })
@@ -227,7 +185,11 @@ function DailyBrief() {
       setTasks(tasksList)
     } catch (error) {
       console.error('Failed to load tasks:', error)
-      // Don't show error on initial load
+      // Handle 404 specifically - endpoint might not exist or require different params
+      if (error.message?.includes('404') || error.message?.includes('Not Found')) {
+        console.warn('Tasks endpoint returned 404 - endpoint may require user_id parameter')
+      }
+      setTasks([]) // Set empty array on error
     } finally {
       setTasksLoading(false)
     }
@@ -283,10 +245,19 @@ function DailyBrief() {
       if (briefsList.length > 0) {
         // Use the most recent brief for today
         setBrief(briefsList[briefsList.length - 1])
+      } else {
+        setBrief(null) // Clear brief if none found
       }
     } catch (error) {
       console.error('Failed to load brief:', error)
-      // Don't show error on initial load
+      // Handle 404 specifically - no brief exists for this date (expected)
+      if (error.message?.includes('404') || error.message?.includes('Not Found')) {
+        console.info('No brief found for today - this is normal if no brief has been generated yet')
+        setBrief(null)
+      } else {
+        // For other errors, still clear the brief
+        setBrief(null)
+      }
     } finally {
       setBriefLoading(false)
     }
@@ -455,12 +426,8 @@ function DailyBrief() {
         <aside className="brief-sidebar">
           <div className="sidebar-accounts">
             {(() => {
-              console.log('[DailyBrief] Rendering sidebar accounts. connectedAccounts:', connectedAccounts)
-              console.log('[DailyBrief] Rendering sidebar accounts. connectedEmails:', connectedEmails)
-              console.log('[DailyBrief] Rendering sidebar accounts. connectedEmails.length:', connectedEmails.length)
               return connectedAccounts.map(account => {
                 const shouldShowEmail = account.id === 'all' && connectedEmails.length > 0
-                console.log(`[DailyBrief] Rendering account: ${account.name}, shouldShowEmail: ${shouldShowEmail}`)
                 return (
                   <button
                     key={account.id}

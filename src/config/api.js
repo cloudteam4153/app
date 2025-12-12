@@ -41,38 +41,39 @@ export const TEST_USER_ID = '3aab3fba-9f4d-48ee-bee5-c1df257c33cc';
 export const TEST_USER_ID_INT = 1;
 
 // API endpoint paths
-// Composite service uses /api prefix for all service endpoints
+// Composite service endpoints - paths match actual backend structure from OpenAPI spec
+// Note: Most endpoints do NOT use /api prefix, except /api/dashboard
 export const API_PATHS = {
   // Health check (composite service root health endpoint)
   HEALTH: '/health',
   
-  // Integrations endpoints (prefixed with /api/integrations)
+  // Integrations endpoints (no /api prefix, no service name prefix)
   INTEGRATIONS: {
-    BASE: '/api/integrations',
-    CONNECTIONS: '/api/integrations/connections',
-    MESSAGES: '/api/integrations/messages',
-    SYNCS: '/api/integrations/syncs',
+    BASE: '/connections',
+    CONNECTIONS: '/connections',
+    MESSAGES: '/messages',
+    SYNCS: '/syncs',
   },
   
-  // Actions endpoints
+  // Actions endpoints (no /api prefix)
   ACTIONS: {
-    BASE: '/api/actions',
-    TASKS: '/api/actions/tasks',
-    TODO: '/api/actions/todo',
-    FOLLOWUP: '/api/actions/followup',
+    BASE: '/actions',
+    TASKS: '/actions/tasks',
+    TODO: '/actions/todo', // May not exist, keeping for backward compatibility
+    FOLLOWUP: '/actions/followup', // May not exist, keeping for backward compatibility
   },
   
-  // Classification endpoints
+  // Classification endpoints (no /api prefix, no service name prefix)
   CLASSIFICATION: {
-    BASE: '/api/classification',
-    MESSAGES: '/api/classification/messages',
-    CLASSIFICATIONS: '/api/classification/classifications',
-    BRIEFS: '/api/classification/briefs',
-    TASKS: '/api/classification/tasks',
+    BASE: '/classification',
+    MESSAGES: '/messages', // Shared with integrations
+    CLASSIFICATIONS: '/classification',
+    BRIEFS: '/briefs',
+    TASKS: '/classification/tasks', // May not exist, keeping for backward compatibility
   },
   
-  // Composite dashboard
-  DASHBOARD: '/api/composite/dashboard',
+  // Composite dashboard (this one DOES use /api prefix)
+  DASHBOARD: '/api/dashboard',
   
   // Authentication endpoints
   AUTH: {

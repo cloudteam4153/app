@@ -208,7 +208,7 @@ export const integrationsAPI = {
    */
   listConnections: (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
-    return apiRequest(`${API_PATHS.INTEGRATIONS.CONNECTIONS}${queryString ? `?${queryString}` : ''}`);
+    return apiRequest(`${API_PATHS.INTEGRATIONS.CONNECTIONS}/${queryString ? `?${queryString}` : ''}`);
   },
   
   /**
@@ -224,7 +224,7 @@ export const integrationsAPI = {
    * @returns {Promise<Object>} Created connection
    */
   createConnection: (connectionData) => 
-    apiRequest(API_PATHS.INTEGRATIONS.CONNECTIONS, {
+    apiRequest(`${API_PATHS.INTEGRATIONS.CONNECTIONS}/`, {
       method: 'POST',
       body: JSON.stringify(connectionData),
     }),
@@ -278,7 +278,7 @@ export const integrationsAPI = {
    */
   listMessages: (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
-    return apiRequest(`${API_PATHS.INTEGRATIONS.MESSAGES}${queryString ? `?${queryString}` : ''}`);
+    return apiRequest(`${API_PATHS.INTEGRATIONS.MESSAGES}/${queryString ? `?${queryString}` : ''}`);
   },
   
   /**
@@ -294,7 +294,7 @@ export const integrationsAPI = {
    * @returns {Promise<Object>} Created message
    */
   createMessage: (messageData) =>
-    apiRequest(API_PATHS.INTEGRATIONS.MESSAGES, {
+    apiRequest(`${API_PATHS.INTEGRATIONS.MESSAGES}/`, {
       method: 'POST',
       body: JSON.stringify(messageData),
     }),
@@ -343,7 +343,7 @@ export const integrationsAPI = {
    */
   listSyncs: (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
-    return apiRequest(`${API_PATHS.INTEGRATIONS.SYNCS}${queryString ? `?${queryString}` : ''}`);
+    return apiRequest(`${API_PATHS.INTEGRATIONS.SYNCS}/${queryString ? `?${queryString}` : ''}`);
   },
   
   /**
@@ -366,7 +366,7 @@ export const integrationsAPI = {
    * @returns {Promise<Object>} Created sync
    */
   createSync: (syncData) =>
-    apiRequest(API_PATHS.INTEGRATIONS.SYNCS, {
+    apiRequest(`${API_PATHS.INTEGRATIONS.SYNCS}/`, {
       method: 'POST',
       body: JSON.stringify(syncData),
     }),
@@ -574,7 +574,7 @@ export const classificationAPI = {
    */
   listMessages: (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
-    return apiRequest(`${API_PATHS.CLASSIFICATION.MESSAGES}${queryString ? `?${queryString}` : ''}`);
+    return apiRequest(`${API_PATHS.CLASSIFICATION.MESSAGES}/${queryString ? `?${queryString}` : ''}`);
   },
   
   /**
@@ -590,7 +590,7 @@ export const classificationAPI = {
    * @returns {Promise<Object>} Created message
    */
   createMessage: (messageData) =>
-    apiRequest(API_PATHS.CLASSIFICATION.MESSAGES, {
+    apiRequest(`${API_PATHS.CLASSIFICATION.MESSAGES}/`, {
       method: 'POST',
       body: JSON.stringify(messageData),
     }),
@@ -602,7 +602,7 @@ export const classificationAPI = {
    */
   listClassifications: (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
-    return apiRequest(`${API_PATHS.CLASSIFICATION.CLASSIFICATIONS}${queryString ? `?${queryString}` : ''}`);
+    return apiRequest(`${API_PATHS.CLASSIFICATION.CLASSIFICATIONS}/${queryString ? `?${queryString}` : ''}`);
   },
   
   /**
@@ -619,7 +619,7 @@ export const classificationAPI = {
    * @returns {Promise<Object>} ClassificationResponse with classifications array, total_processed, success_count, error_count
    */
   classifyMessages: (classificationRequest) =>
-    apiRequest(API_PATHS.CLASSIFICATION.CLASSIFICATIONS, {
+    apiRequest(`${API_PATHS.CLASSIFICATION.CLASSIFICATIONS}/`, {
       method: 'POST',
       body: JSON.stringify(classificationRequest),
     }),
@@ -653,7 +653,7 @@ export const classificationAPI = {
    */
   listBriefs: (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
-    return apiRequest(`${API_PATHS.CLASSIFICATION.BRIEFS}${queryString ? `?${queryString}` : ''}`);
+    return apiRequest(`${API_PATHS.CLASSIFICATION.BRIEFS}/${queryString ? `?${queryString}` : ''}`);
   },
   
   /**
@@ -669,7 +669,7 @@ export const classificationAPI = {
    * @returns {Promise<Object>} Created brief (BriefRead with items array)
    */
   createBrief: (briefRequest) =>
-    apiRequest(API_PATHS.CLASSIFICATION.BRIEFS, {
+    apiRequest(`${API_PATHS.CLASSIFICATION.BRIEFS}/`, {
       method: 'POST',
       body: JSON.stringify(briefRequest),
     }),
