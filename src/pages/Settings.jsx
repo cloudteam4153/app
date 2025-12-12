@@ -54,10 +54,7 @@ function Settings() {
     setMessage({ type: '', text: '' })
     try {
       console.log('[Settings] Attempting to connect Gmail account...');
-      
-      // Pass the frontend callback URL so backend knows where to redirect after OAuth
-      const frontendCallbackUrl = `${window.location.origin}/#/oauth/callback/google/gmail`
-      const response = await authAPI.connectGmail(frontendCallbackUrl)
+      const response = await authAPI.connectGmail()
       console.log('[Settings] Gmail connection response:', response);
       
       // Response contains auth_url to redirect user
